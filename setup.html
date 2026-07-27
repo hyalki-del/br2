@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>Baba Rock Setup</title>
+    <link rel="stylesheet" href="css/core.css">
+    <link rel="stylesheet" href="css/theme-apple.css">
+    <link rel="stylesheet" href="css/theme-marvel.css">
+    <link rel="stylesheet" href="css/theme-wb.css">
+    <style>
+        .setup-card {
+            max-width: 420px;
+            width: 100%;
+            padding: 24px;
+            background: var(--card-bg);
+            border: var(--card-border);
+            border-radius: var(--card-radius);
+            box-shadow: var(--card-shadow);
+        }
+        .form-group {
+            margin-bottom: 20px;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+        select {
+            width: 100%;
+            padding: 12px;
+            border-radius: var(--btn-radius);
+            background: var(--btn-bg);
+            color: var(--btn-text);
+            border: var(--btn-border);
+            font-size: 1rem;
+            outline: none;
+        }
+    </style>
+</head>
+<body data-theme="apple">
+
+    <div class="setup-card">
+        <h2 style="margin-bottom: 16px;">Visual Theme Customization</h2>
+        <div class="form-group">
+            <label for="themeSelect">Select Design Studio Style:</label>
+            <select id="themeSelect">
+                <option value="apple">Apple UI (Liquid Glass Engine)</option>
+                <option value="marvel">Marvel Studios UI (Stark Red & Gold)</option>
+                <option value="warnerbros">Warner Bros. UI (Cinematic Gold & Dark Navy)</option>
+            </select>
+        </div>
+        <a href="index.html" class="action-button" style="text-align: center; justify-content: center; height: 44px;">
+            Apply & Return to Main Screen
+        </a>
+    </div>
+
+    <script src="js/setup.js"></script>
+</body>
+</html>
