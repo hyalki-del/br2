@@ -1,16 +1,1 @@
-(function () {
-    const savedTheme = localStorage.getItem('babarock_theme') || 'default';
-    document.documentElement.setAttribute('data-theme', savedTheme);
-
-    document.addEventListener("DOMContentLoaded", () => {
-        const themeSelector = document.getElementById("themeSelect");
-        if (themeSelector) {
-            themeSelector.value = savedTheme;
-            themeSelector.addEventListener("change", (e) => {
-                const selected = e.target.value;
-                document.documentElement.setAttribute('data-theme', selected);
-                localStorage.setItem('babarock_theme', selected);
-            });
-        }
-    });
-})();
+ (function () {     const savedTheme = localStorage.getItem('babarock_theme') || 'default';     document.documentElement.setAttribute('data-theme', savedTheme);      document.addEventListener("DOMContentLoaded", () => {         const themeSelector = document.getElementById("themeSelect");         if (themeSelector) {             themeSelector.value = savedTheme;             themeSelector.addEventListener("change", (e) => {                 const selected = e.target.value;                 document.documentElement.setAttribute('data-theme', selected);                 localStorage.setItem('babarock_theme', selected);             });         }     }); })();  
