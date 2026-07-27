@@ -1,0 +1,52 @@
+name: Single Block Repository Updater
+
+on:
+  workflow_dispatch:
+    inputs:
+      code_block:
+        description: 'Paste the entire multi-file code block here'
+        required: true
+        type: string
+
+jobs:
+  update-repo:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Parse and Update Files
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const path = require('path');
+
+            const rawInput = context.payload.inputs.code_block;
+            const fileBlocks = rawInput.split(/^===\s*FILE:\s*(.+?)\s*===$/gm);
+
+            if (fileBlocks.length < 3) {
+              core.setFailed("No valid '=== FILE: filename ===' markers found.");
+              return;
+            }
+
+            for (let i = 1; i < fileBlocks.length; i += 2) {
+              const filePath = fileBlocks[i].trim();
+              const fileContent = fileBlocks[i + 1].replace(/^\r?\n/, '');
+
+              const dir = path.dirname(filePath);
+              if (!fs.existsSync(dir)) {
+                fs.mkdirSync(dir, { recursive: true });
+              }
+
+              fs.writeFileSync(filePath, fileContent, 'utf8');
+              console.log(`Successfully updated: ${filePath}`);
+            }
+
+      - name: Commit and Push Changes
+        run: |
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+          git add .
+          git commit -m "Bulk update via single block action" || echo "No changes to commit"
+          git push
