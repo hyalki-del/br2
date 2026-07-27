@@ -5,6 +5,13 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <title>Baba Rock</title>
 
+    <script>
+        (function() {
+            const savedTheme = localStorage.getItem('babarock_theme') || 'default';
+            document.documentElement.setAttribute('data-theme', savedTheme);
+        })();
+    </script>
+
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -16,10 +23,17 @@
     <link rel="stylesheet" href="css/theme-marvel.css">
     <link rel="stylesheet" href="css/theme-wb.css">
 </head>
-<body data-theme="apple">
+<body>
 
-    <div class="welcome-card">
-        <div class="led-banner">
+    <div class="bg-container">
+        <img id="fullBgImage" src="https://hyalki-del.github.io/babarock/9E3DB23C-F5C1-438B-91E7-323E8FEE34AD_4_5005_c.jpeg" alt="Baba Rock Background" class="bg-image">
+    </div>
+
+    <div class="dotted-overlay"></div>
+
+    <main class="main-wrapper">
+        
+        <div class="led-banner-container">
             <div class="led-track">
                 <div class="led-content">
                     <span><i class="fa-solid fa-bolt"></i> BABA ROCK LIVE EXPERIENCE</span>
@@ -38,35 +52,50 @@
             </div>
         </div>
 
-        <div class="content-grid">
-            <div class="logo-column">
-                <img id="randomLogo" src="https://hyalki-del.github.io/babarock/9E3DB23C-F5C1-438B-91E7-323E8FEE34AD_4_5005_c.jpeg" alt="Baba Rock Logo" class="logo-img">
+        <div class="honeycomb">
+            
+            <div class="hex-row">
+                <a href="https://hyalki-del.github.io/babarock/takvim.html" class="hex-tile" target="_blank" rel="noopener">
+                    <div class="hex-inner">
+                        <i class="fa-solid fa-calendar-days"></i>
+                        <span>Takvim</span>
+                    </div>
+                </a>
+
+                <a href="https://hyalki-del.github.io/babarock/playlist.html" class="hex-tile" target="_blank" rel="noopener">
+                    <div class="hex-inner">
+                        <i class="fa-solid fa-music"></i>
+                        <span>Playlist</span>
+                    </div>
+                </a>
             </div>
 
-            <nav class="navigation-column">
-                <a href="https://hyalki-del.github.io/babarock/takvim.html" class="action-button" target="_blank" rel="noopener">
-                    <i class="fa-solid fa-calendar-days"></i>
-                    <span>Takvim</span>
+            <div class="hex-row offset">
+                <a href="https://hyalki-del.github.io/babarock/rehearsal.html" class="hex-tile" target="_blank" rel="noopener">
+                    <div class="hex-inner">
+                        <i class="fa-solid fa-microphone-lines"></i>
+                        <span>Prova/Setlist</span>
+                    </div>
                 </a>
-                <a href="https://hyalki-del.github.io/babarock/playlist.html" class="action-button" target="_blank" rel="noopener">
-                    <i class="fa-solid fa-music"></i>
-                    <span>Playlist</span>
+
+                <a href="https://hyalki-del.github.io/babarock/advisor.html" class="hex-tile" target="_blank" rel="noopener">
+                    <div class="hex-inner">
+                        <i class="fa-solid fa-dice"></i>
+                        <span>Şarkı Seçici</span>
+                    </div>
                 </a>
-                <a href="https://hyalki-del.github.io/babarock/rehearsal.html" class="action-button" target="_blank" rel="noopener">
-                    <i class="fa-solid fa-microphone-lines"></i>
-                    <span>Prova/Setlist</span>
+
+                <a href="setup.html" class="hex-tile">
+                    <div class="hex-inner">
+                        <i class="fa-solid fa-gear"></i>
+                        <span>Ayarlar</span>
+                    </div>
                 </a>
-                <a href="https://hyalki-del.github.io/babarock/advisor.html" class="action-button" target="_blank" rel="noopener">
-                    <i class="fa-solid fa-dice"></i>
-                    <span>Şarkı seçici</span>
-                </a>
-                <a href="setup.html" class="action-button">
-                    <i class="fa-solid fa-gear"></i>
-                    <span>Ayarlar / Themes</span>
-                </a>
-            </nav>
+            </div>
+
         </div>
-    </div>
+
+    </main>
 
     <script src="js/setup.js"></script>
     <script src="js/script.js"></script>
