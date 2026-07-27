@@ -1,0 +1,28 @@
+body[data-theme="marvel"] {
+    --page-bg: #0a0505;
+    --font-primary: 'Impact', 'Trebuchet MS', sans-serif;
+    --card-bg: #160707;
+    --card-border: 2px solid #e62429;
+    --card-radius: 6px;
+    --card-shadow: 0 0 35px rgba(230, 36, 41, 0.35);
+    
+    --marquee-bg: #e62429;
+    --marquee-border: 2px solid #fecb00;
+    --marquee-color: #ffffff;
+    --marquee-icon-color: #fecb00;
+    --marquee-glow: 0 0 8px #ffffff;
+    
+    --logo-bg: #220a0a;
+    --logo-border: 2px solid #e62429;
+    --logo-radius: 4px;
+    --img-radius: 2px;
+    
+    --btn-bg: #2b0c0d;
+    --btn-border: 1px solid #e62429;
+    --btn-radius: 4px;
+    --btn-text: #ffffff;
+    --btn-icon-color: #fecb00;
+    --btn-hover-bg: #e62429;
+    --btn-hover-border: #fecb00;
+    --btn-hover-text: #ffffff;
+}
