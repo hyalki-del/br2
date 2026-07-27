@@ -15,7 +15,7 @@ jobs:
       - name: Checkout Repository
         uses: actions/checkout@v4
 
-      - name: Parse and Update Files
+      - name: Parse and Write Files
         uses: actions/github-script@v7
         with:
           script: |
@@ -23,13 +23,10 @@ jobs:
             const path = require('path');
 
             const rawInput = context.payload.inputs.code_block;
-            
-            // Global regex delimiter matching '=== FILE: filename ==='
             const regex = /===\s*FILE:\s*([^\s=]+)\s*===/g;
             let match;
             let fileEntries = [];
 
-            // Extract all file markers and their positions
             while ((match = regex.exec(rawInput)) !== null) {
               fileEntries.push({
                 filePath: match[1].trim(),
@@ -43,14 +40,11 @@ jobs:
               return;
             }
 
-            // Extract file contents between markers
             for (let i = 0; i < fileEntries.length; i++) {
               const current = fileEntries[i];
               const nextStart = (i + 1 < fileEntries.length) ? fileEntries[i + 1].headerStart : rawInput.length;
-              
               let content = rawInput.substring(current.headerEnd, nextStart);
 
-              // Create parent directory if missing
               const dir = path.dirname(current.filePath);
               if (!fs.existsSync(dir)) {
                 fs.mkdirSync(dir, { recursive: true });
@@ -60,10 +54,17 @@ jobs:
               console.log(`Successfully updated: ${current.filePath}`);
             }
 
+      - name: Inject Automatic Commit Hash for Cache-Busting
+        run: |
+          COMMIT_HASH=$(echo $GITHUB_SHA | cut -c1-7)
+          echo "Injecting Cache-Busting SHA: $COMMIT_HASH"
+          sed -i "s/\?v=BUILD_SHA/\?v=$COMMIT_HASH/g" index.html || true
+          sed -i "s/\?v=BUILD_SHA/\?v=$COMMIT_HASH/g" setup.html || true
+
       - name: Commit and Push Changes
         run: |
           git config --global user.name "github-actions[bot]"
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
           git add .
-          git commit -m "Bulk update via single block action" || echo "No changes to commit"
+          git commit -m "Integrated PWA, OpenGraph, and Automated Cache-Busting" || echo "No changes to commit"
           git push
