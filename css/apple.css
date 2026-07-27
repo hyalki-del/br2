@@ -1,0 +1,28 @@
+body[data-theme="apple"] {
+    --page-bg: #000000;
+    --font-primary: -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", sans-serif;
+    --card-bg: rgba(255, 255, 255, 0.08);
+    --card-border: 1px solid rgba(255, 255, 255, 0.18);
+    --card-radius: 28px;
+    --card-shadow: 0 30px 60px rgba(0, 0, 0, 0.5);
+    
+    --marquee-bg: rgba(0, 0, 0, 0.4);
+    --marquee-border: 1px solid rgba(255, 255, 255, 0.1);
+    --marquee-color: #f5f5f7;
+    --marquee-icon-color: #2997ff;
+    --marquee-glow: 0 0 10px rgba(41, 151, 255, 0.5);
+    
+    --logo-bg: rgba(255, 255, 255, 0.05);
+    --logo-border: 1px solid rgba(255, 255, 255, 0.12);
+    --logo-radius: 18px;
+    --img-radius: 14px;
+    
+    --btn-bg: rgba(255, 255, 255, 0.1);
+    --btn-border: 1px solid rgba(255, 255, 255, 0.15);
+    --btn-radius: 14px;
+    --btn-text: #f5f5f7;
+    --btn-icon-color: #2997ff;
+    --btn-hover-bg: rgba(255, 255, 255, 0.22);
+    --btn-hover-border: rgba(255, 255, 255, 0.35);
+    --btn-hover-text: #ffffff;
+}
