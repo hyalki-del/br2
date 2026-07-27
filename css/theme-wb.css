@@ -1,0 +1,28 @@
+body[data-theme="warnerbros"] {
+    --page-bg: #030814;
+    --font-primary: 'Cinzel', 'Georgia', serif;
+    --card-bg: linear-gradient(145deg, #091326 0%, #040914 100%);
+    --card-border: 1px solid #c5a059;
+    --card-radius: 12px;
+    --card-shadow: 0 20px 40px rgba(197, 160, 89, 0.15);
+    
+    --marquee-bg: #02060e;
+    --marquee-border: 1px solid #c5a059;
+    --marquee-color: #e5c158;
+    --marquee-icon-color: #ffffff;
+    --marquee-glow: 0 0 6px rgba(229, 193, 88, 0.6);
+    
+    --logo-bg: #08101e;
+    --logo-border: 1px solid #c5a059;
+    --logo-radius: 8px;
+    --img-radius: 6px;
+    
+    --btn-bg: #0a162b;
+    --btn-border: 1px solid #3a506b;
+    --btn-radius: 8px;
+    --btn-text: #d1d5db;
+    --btn-icon-color: #c5a059;
+    --btn-hover-bg: #c5a059;
+    --btn-hover-border: #f3e5ab;
+    --btn-hover-text: #030814;
+}
