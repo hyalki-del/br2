@@ -1,0 +1,38 @@
+name: Tum Kodlari Birlestir
+
+on:
+  # GitHub panelinden "Run workflow" butonuyla elle tetiklemek için:
+  workflow_dispatch:
+
+jobs:
+  combine-files:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Repositoriyi Klonla
+        uses: actions/checkout@v4
+
+      - name: Kod Dosyalarını Tek Dosyada Birleştir
+        run: |
+          OUTPUT_FILE="tum_kodlar.txt"
+          echo "=== PROJE KODLARI BIRLESTIRILDI ===" > $OUTPUT_FILE
+          echo "" >> $OUTPUT_FILE
+
+          # Belirtilen uzantılardaki (.html, .js, .css, .json, .md) dosyaları bulur ve birleştirir
+          find . -type f \( -name "*.html" -o -name "*.js" -o -name "*.css" -o -name "*.json" -o -name "*.md" \) \
+            ! -path "*/.*" \
+            ! -path "*/node_modules/*" \
+            ! -path "*/dist/*" \
+            ! -path "*/build/*" | sort | while read -r file; do
+              echo "--------------------------------------------------------------------------------" >> $OUTPUT_FILE
+              echo "DOSYA: $file" >> $OUTPUT_FILE
+              echo "--------------------------------------------------------------------------------" >> $OUTPUT_FILE
+              cat "$file" >> $OUTPUT_FILE
+              echo -e "\n\n" >> $OUTPUT_FILE
+          done
+
+      - name: Oluşan Dosyayı Çıktı (Artifact) Olarak Yükle
+        uses: actions/upload-artifact@v4
+        with:
+          name: tum_kodlar_dosyasi
+          path: tum_kodlar.txt
