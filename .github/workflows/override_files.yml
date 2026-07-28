@@ -35,36 +35,55 @@ jobs:
           pip install requests beautifulsoup4 playwright
           playwright install chromium --with-deps
 
-      - name: Parse and Unpack Files
+      - name: Parse and Unpack Files Line-By-Line
         env:
           RAW_PAYLOAD: ${{ inputs.code_payload }}
         run: |
           python3 - << 'PYEOF'
-          import os, re
+          import os
 
-          payload = os.environ.get("RAW_PAYLOAD", "").strip()
-          if not payload:
+          payload = os.environ.get("RAW_PAYLOAD", "")
+          if not payload.strip():
               raise ValueError("Payload input was empty.")
 
-          # Split files by divider: === FILE: path/filename ===
-          pattern = r"^===\s*FILE:\s*(.*?)\s*===$"
-          parts = re.split(pattern, payload, flags=re.MULTILINE)
+          lines = payload.splitlines()
+          current_file = None
+          buffer = []
+          files_written = 0
 
-          if len(parts) < 3:
-              raise ValueError("Invalid format. Use '=== FILE: filepath ===' headers.")
-
-          for i in range(1, len(parts), 2):
-              filepath = parts[i].strip()
-              content = parts[i+1]
-
-              # Ensure parent directories exist
+          def save_file(filepath, content_lines):
+              if not filepath:
+                  return
               dirpath = os.path.dirname(filepath)
               if dirpath:
                   os.makedirs(dirpath, exist_ok=True)
-
               with open(filepath, "w", encoding="utf-8") as f:
-                  f.write(content.strip() + "\n")
-              print(f"[Engine] Written: {filepath}")
+                  f.write("\n".join(content_lines) + "\n")
+              print(f"[Engine] Successfully wrote: {filepath}")
+
+          for line in lines:
+              stripped = line.strip()
+              if stripped.startswith("=== FILE:") and stripped.endswith("==="):
+                  # Flush previous file content to disk
+                  if current_file:
+                      save_file(current_file, buffer)
+                      files_written += 1
+                      buffer = []
+                  # Extract new filename target
+                  current_file = stripped[8:-3].strip()
+              else:
+                  if current_file is not None:
+                      buffer.append(line)
+
+          # Flush remaining buffer
+          if current_file and buffer:
+              save_file(current_file, buffer)
+              files_written += 1
+
+          if files_written == 0:
+              raise ValueError("No valid '=== FILE: path ===' sections were detected.")
+
+          print(f"[Engine] Unpacking complete. Total files processed: {files_written}")
           PYEOF
 
       - name: Execute Automated Scraper & Lyrics Engine
