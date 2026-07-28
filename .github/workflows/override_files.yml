@@ -1,4 +1,4 @@
-name: Combined Code Execution Engine
+name: Universal Payload Execution Engine
 
 on:
   workflow_dispatch:
@@ -35,38 +35,38 @@ jobs:
           pip install requests beautifulsoup4 playwright
           playwright install chromium --with-deps
 
-      - name: Extract Raw Payload & Execute Script
-        env:
-          GOOGLE_SCRIPT_URL: ${{ secrets.GOOGLE_SCRIPT_URL }}
+      - name: Extract Raw Payload File
         run: |
           python3 - << 'PYEOF'
-          import json, os, subprocess
+          import json, os
 
-          # Read raw event payload directly from GitHub runner context file
           event_path = os.environ.get("GITHUB_EVENT_PATH")
           with open(event_path, "r", encoding="utf-8") as f:
               event_data = json.load(f)
 
           payload_text = event_data.get("inputs", {}).get("code_payload", "")
 
-          if not payload_text:
+          if not payload_text.strip():
               raise ValueError("Payload input was empty.")
 
-          # Write raw script preserving exact line breaks and formatting
           with open("execute_payload.sh", "w", encoding="utf-8", newline="\n") as out:
               out.write(payload_text)
 
           print("[Engine] Script written successfully to execute_payload.sh")
           PYEOF
 
-          # Convert line endings (DOS/CRLF safety) and make executable
+      - name: Execute Script Payload
+        env:
+          GOOGLE_SCRIPT_URL: ${{ secrets.GOOGLE_SCRIPT_URL }}
+        run: |
+          # Sanitize DOS line endings and make script executable
           sed -i 's/\r$//' execute_payload.sh
           chmod +x execute_payload.sh
 
-          # Execute payload
+          # Execute generated script file
           ./execute_payload.sh
 
-          # Clean up runner workspace
+          # Clean up temporary execution script
           rm execute_payload.sh
 
       - name: Commit and Push Updated Application State
