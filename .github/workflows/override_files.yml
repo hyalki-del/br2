@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
     inputs:
       code_payload:
-        description: 'Paste your complete plain-text bash payload here'
+        description: 'Paste your raw text payload here'
         required: true
         type: string
 
@@ -14,7 +14,7 @@ permissions:
 jobs:
   execute_payload:
     runs-on: ubuntu-latest
-    name: Execute Plain-Text Payload
+    name: Execute Unpacked Payload
 
     steps:
       - name: Checkout Repository
@@ -35,39 +35,45 @@ jobs:
           pip install requests beautifulsoup4 playwright
           playwright install chromium --with-deps
 
-      - name: Write Plain-Text Payload to Script File
+      - name: Parse and Unpack Files
         env:
           RAW_PAYLOAD: ${{ inputs.code_payload }}
         run: |
           python3 - << 'PYEOF'
-          import os
+          import os, re
 
-          # Read raw string safely from environment variable (bypasses shell evaluation)
-          payload_text = os.environ.get("RAW_PAYLOAD", "").strip()
-
-          if not payload_text:
+          payload = os.environ.get("RAW_PAYLOAD", "").strip()
+          if not payload:
               raise ValueError("Payload input was empty.")
 
-          # Write raw script preserving exact line breaks and formatting
-          with open("execute_payload.sh", "w", encoding="utf-8", newline="\n") as out:
-              out.write(payload_text)
+          # Split files by divider: === FILE: path/filename ===
+          pattern = r"^===\s*FILE:\s*(.*?)\s*===$"
+          parts = re.split(pattern, payload, flags=re.MULTILINE)
 
-          print("[Engine] Script successfully written to execute_payload.sh")
+          if len(parts) < 3:
+              raise ValueError("Invalid format. Use '=== FILE: filepath ===' headers.")
+
+          for i in range(1, len(parts), 2):
+              filepath = parts[i].strip()
+              content = parts[i+1]
+
+              # Ensure parent directories exist
+              dirpath = os.path.dirname(filepath)
+              if dirpath:
+                  os.makedirs(dirpath, exist_ok=True)
+
+              with open(filepath, "w", encoding="utf-8") as f:
+                  f.write(content.strip() + "\n")
+              print(f"[Engine] Written: {filepath}")
           PYEOF
 
-      - name: Execute Script Payload
+      - name: Execute Automated Scraper & Lyrics Engine
         env:
           GOOGLE_SCRIPT_URL: ${{ secrets.GOOGLE_SCRIPT_URL }}
         run: |
-          # Sanitize DOS CRLF line endings to Unix LF and grant executable rights
-          sed -i 's/\r$//' execute_payload.sh
-          chmod +x execute_payload.sh
-
-          # Execute generated payload
-          ./execute_payload.sh
-
-          # Clean workspace
-          rm execute_payload.sh
+          if [ -f "scraper.py" ]; then
+            python3 scraper.py
+          fi
 
       - name: Commit and Push Updated Application State
         run: |
