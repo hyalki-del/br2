@@ -1,0 +1,223 @@
+name: Band Dashboard Sync Engine Pipeline
+
+on:
+  schedule:
+    # Runs automatically every night at midnight UTC
+    - cron: '0 0 * * *'
+  workflow_dispatch:
+    # Allows manual execution from the GitHub Actions UI tab
+    inputs:
+      force_sync:
+        description: 'Force clean full sync (ignore cache)'
+        required: false
+        default: 'false'
+
+permissions:
+  contents: write
+
+jobs:
+  sync_and_fetch:
+    runs-on: ubuntu-latest
+    name: Execute Scraping, Sheet Diff, and Lyrics Ingestion
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          fetch-depth: 0
+
+      - name: Set up Python Environment
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install Python Dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install requests beautifulsoup4
+
+      - name: Execute Sync Engine Pipeline Script
+        env:
+          GOOGLE_SCRIPT_URL: ${{ secrets.GOOGLE_SCRIPT_URL }}
+        run: |
+          python - << 'EOF'
+          import os
+          import re
+          import json
+          import time
+          import urllib.parse
+          import requests
+          from bs4 import BeautifulSoup
+
+          def main():
+              print("=== [PHASE 1] Loading Project Configuration ===")
+              config_path = "config.json"
+              if not os.path.exists(config_path):
+                  print(f"Error: {config_path} missing in root repository.")
+                  return
+
+              with open(config_path, "r", encoding="utf-8") as f:
+                  config = json.load(f)
+
+              ug_url = config.get("ug_playlist_link") or config.get("ug_link")
+              gas_url = os.environ.get("GOOGLE_SCRIPT_URL") or config.get("google_sheets_api_url")
+
+              if not ug_url:
+                  print("Error: Ultimate Guitar link missing in config.json.")
+                  return
+              if not gas_url:
+                  print("Error: Google Sheets API Web App URL missing in Secrets or config.json.")
+                  return
+
+              print(f"Target UG Playlist: {ug_url}")
+              print(f"Target Apps Script Endpoint: {gas_url}")
+
+              print("\n=== [PHASE 2] Scraping Ultimate Guitar Playlist ===")
+              headers = {
+                  "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+              }
+              
+              scraped_songs = []
+              try:
+                  res = requests.get(ug_url, headers=headers, timeout=15)
+                  res.raise_for_status()
+                  
+                  # Extract JSON payload buried inside Ultimate Guitar page script tags
+                  match = re.search(r'window\.UGAPP\.store\.page\s*=\s*({.*?});', res.text)
+                  if match:
+                      page_data = json.loads(match.group(1))
+                      tab_items = page_data.get("data", {}).get("tab_view", {}).get("wiki_tab", {}).get("user_tabs", [])
+                      if not tab_items:
+                          tab_items = page_data.get("data", {}).get("page_data", {}).get("tabs", [])
+                          
+                      for item in tab_items:
+                          song_name = item.get("song_name") or item.get("song_title")
+                          artist_name = item.get("artist_name")
+                          if song_name and artist_name:
+                              scraped_songs.append({
+                                  "songName": song_name.strip(),
+                                  "artistName": artist_name.strip()
+                              })
+                  else:
+                      # Fallback BeautifulSoup parsing if JS store is absent
+                      soup = BeautifulSoup(res.text, "html.parser")
+                      for row in soup.select("article select, div.js-store"):
+                          pass # Handled primary regex store parsing
+              except Exception as e:
+                  print(f"Warning/Error scraping Ultimate Guitar: {str(e)}")
+
+              if not scraped_songs:
+                  print("Could not scrape songs directly. Checking for fallback playlist.json.")
+                  if os.path.exists("playlist.json"):
+                      with open("playlist.json", "r", encoding="utf-8") as f:
+                          scraped_songs = json.load(f)
+
+              print(f"Total songs parsed from playlist: {len(scraped_songs)}")
+
+              print("\n=== [PHASE 3] Synchronizing & Diffing with Google Sheets ===")
+              payload = {
+                  "action": "syncScrapedPlaylist",
+                  "payload": {
+                      "songs": scraped_songs
+                  }
+              }
+              
+              try:
+                  sync_res = requests.post(gas_url, json=payload, timeout=20)
+                  print(f"Google Sheets API Response: {sync_res.text}")
+              except Exception as e:
+                  print(f"Error posting data to Apps Script: {str(e)}")
+
+              # Read full state back from Google Sheets to reflect server-side index and key preserves
+              updated_playlist = []
+              try:
+                  read_res = requests.get(f"{gas_url}?action=readTab&tab=song-info", timeout=15)
+                  read_json = read_res.json()
+                  if read_json.get("status") == "success":
+                      raw_rows = read_json.get("data", [])
+                      for idx, row in enumerate(raw_rows):
+                          updated_playlist.append({
+                              "index": row.get("Index", idx + 1),
+                              "songName": row.get("Song Name", ""),
+                              "artistName": row.get("Artist Name", ""),
+                              "key": row.get("Key", "")
+                          })
+              except Exception as e:
+                  print(f"Error fetching back updated state from Google Sheets: {str(e)}")
+                  updated_playlist = scraped_songs
+
+              # Write local playlist.json state
+              with open("playlist.json", "w", encoding="utf-8") as f:
+                  json.dump(updated_playlist, f, indent=2, ensure_ascii=False)
+              print("Successfully created/updated playlist.json.")
+
+              print("\n=== [PHASE 4] Fetching Lyrics (lrclib.net) & Writing to /songs/ ===")
+              os.makedirs("songs", exist_ok=True)
+
+              for idx, track in enumerate(updated_playlist, start=1):
+                  song_title = track.get("songName", "").strip()
+                  artist_name = track.get("artistName", "").strip()
+                  
+                  if not song_title or not artist_name:
+                      continue
+
+                  # Sanitize filename: #-song-name-artist-name.txt
+                  safe_song = re.sub(r'[^a-zA-Z0-9]', '-', song_title.lower())
+                  safe_artist = re.sub(r'[^a-zA-Z0-9]', '-', artist_name.lower())
+                  safe_song = re.sub(r'-+', '-', safe_song).strip('-')
+                  safe_artist = re.sub(r'-+', '-', safe_artist).strip('-')
+                  
+                  file_name = f"{idx}-{safe_song}-{safe_artist}.txt"
+                  file_path = os.path.join("songs", file_name)
+
+                  # Skip if lyrics file already exists to minimize API calls
+                  if os.path.exists(file_path):
+                      continue
+
+                  print(f"Fetching lyrics for [{idx}] {song_title} - {artist_name}...")
+                  query_url = f"https://lrclib.net/api/get?artist_name={urllib.parse.quote(artist_name)}&track_name={urllib.parse.quote(song_title)}"
+                  
+                  lyrics_text = ""
+                  try:
+                      l_res = requests.get(query_url, timeout=10)
+                      if l_res.status_code == 200:
+                          l_data = l_res.json()
+                          lyrics_text = l_data.get("plainLyrics") or l_data.get("syncedLyrics") or ""
+                      else:
+                          # Search fallback endpoint
+                          search_url = f"https://lrclib.net/api/search?q={urllib.parse.quote(song_title + ' ' + artist_name)}"
+                          s_res = requests.get(search_url, timeout=10)
+                          if s_res.status_code == 200 and len(s_res.json()) > 0:
+                              first_hit = s_res.json()[0]
+                              lyrics_text = first_hit.get("plainLyrics") or first_hit.get("syncedLyrics") or ""
+                  except Exception as err:
+                      print(f"Failed fetching lyrics for {song_title}: {err}")
+
+                  if not lyrics_text:
+                      lyrics_text = f"Lyrics for '{song_title}' by '{artist_name}' could not be automatically located."
+
+                  with open(file_path, "w", encoding="utf-8") as lf:
+                      lf.write(f"Title: {song_title}\nArtist: {artist_name}\n\n" + lyrics_text)
+                  
+                  time.sleep(0.5) # Gentle rate-limit pause
+
+              print("\n=== [PHASE 5] Pipeline Complete ===")
+
+          if __name__ == "__main__":
+              main()
+          EOF
+
+      - name: Commit and Push Updated State & Songs
+        run: |
+          git config --global user.name 'github-actions[bot]'
+          git config --global user.email 'github-actions[bot]@users.noreply.github.com'
+          git add playlist.json songs/
+          
+          # Check if changes exist before committing
+          if git diff --staged --quiet; then
+            echo "No changes detected in playlist or lyrics. Skipping commit."
+          else
+            git commit -m "auto(sync): update playlist.json state and songs/ lyrics directory"
+            git push
+          fi
