@@ -23,26 +23,32 @@ jobs:
           token: ${{ secrets.GITHUB_TOKEN }}
           fetch-depth: 0
 
-      - name: Set up Environment & Dependencies
+      - name: Set up Python & Environment
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install Dependencies & Playwright
         run: |
           mkdir -p core .github/workflows songs
           python -m pip install --upgrade pip
           pip install requests beautifulsoup4 playwright
           playwright install chromium --with-deps
 
-      - name: Save Payload & Execute Bash Script
+      - name: Safely Write and Execute Payload Script
         env:
           PAYLOAD_TEXT: ${{ inputs.code_payload }}
           GOOGLE_SCRIPT_URL: ${{ secrets.GOOGLE_SCRIPT_URL }}
         run: |
-          # Write the input payload to a temp execution script
-          echo "$PAYLOAD_TEXT" > execute_payload.sh
+          # Use Python to preserve multiline breaks and avoid shell escaping issues
+          python3 -c "import os; open('execute_payload.sh', 'w', encoding='utf-8').write(os.environ['PAYLOAD_TEXT'])"
+          
+          # Convert line endings (DOS/Windows CRLF to Unix LF)
+          sed -i 's/\r$//' execute_payload.sh
+          
           chmod +x execute_payload.sh
-
-          # Execute the payload
           ./execute_payload.sh
-
-          # Cleanup temp script
+          
           rm execute_payload.sh
 
       - name: Commit and Push All Changes
