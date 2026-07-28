@@ -1,4 +1,4 @@
-name: Universal Payload Execution Engine
+name: Combined Code Execution Engine
 
 on:
   workflow_dispatch:
@@ -23,35 +23,53 @@ jobs:
           token: ${{ secrets.GITHUB_TOKEN }}
           fetch-depth: 0
 
-      - name: Set up Python & Environment
+      - name: Set up Python Environment
         uses: actions/setup-python@v5
         with:
           python-version: '3.11'
 
-      - name: Install Dependencies & Playwright
+      - name: Install System Dependencies & Playwright
         run: |
           mkdir -p core .github/workflows songs
           python -m pip install --upgrade pip
           pip install requests beautifulsoup4 playwright
           playwright install chromium --with-deps
 
-      - name: Safely Write and Execute Payload Script
+      - name: Extract Raw Payload & Execute Script
         env:
-          PAYLOAD_TEXT: ${{ inputs.code_payload }}
           GOOGLE_SCRIPT_URL: ${{ secrets.GOOGLE_SCRIPT_URL }}
         run: |
-          # Use Python to preserve multiline breaks and avoid shell escaping issues
-          python3 -c "import os; open('execute_payload.sh', 'w', encoding='utf-8').write(os.environ['PAYLOAD_TEXT'])"
-          
-          # Convert line endings (DOS/Windows CRLF to Unix LF)
+          python3 - << 'PYEOF'
+          import json, os, subprocess
+
+          # Read raw event payload directly from GitHub runner context file
+          event_path = os.environ.get("GITHUB_EVENT_PATH")
+          with open(event_path, "r", encoding="utf-8") as f:
+              event_data = json.load(f)
+
+          payload_text = event_data.get("inputs", {}).get("code_payload", "")
+
+          if not payload_text:
+              raise ValueError("Payload input was empty.")
+
+          # Write raw script preserving exact line breaks and formatting
+          with open("execute_payload.sh", "w", encoding="utf-8", newline="\n") as out:
+              out.write(payload_text)
+
+          print("[Engine] Script written successfully to execute_payload.sh")
+          PYEOF
+
+          # Convert line endings (DOS/CRLF safety) and make executable
           sed -i 's/\r$//' execute_payload.sh
-          
           chmod +x execute_payload.sh
+
+          # Execute payload
           ./execute_payload.sh
-          
+
+          # Clean up runner workspace
           rm execute_payload.sh
 
-      - name: Commit and Push All Changes
+      - name: Commit and Push Updated Application State
         run: |
           git config --global user.name 'github-actions[bot]'
           git config --global user.email 'github-actions[bot]@users.noreply.github.com'
