@@ -9,10 +9,10 @@
         * { box-sizing: border-box; margin: 0; padding: 0; transition: background-color 0.3s, color 0.3s, border-color 0.3s; }
         body { background-color: var(--bg-primary, #000000); color: var(--text-main, #ffffff); font-family: var(--font-family, sans-serif); min-height: 100vh; padding: 90px 20px 40px 20px; display: flex; flex-direction: column; align-items: center; justify-content: center; position: relative; overflow-x: hidden; -webkit-font-smoothing: antialiased; }
         
-        /* Authentic Retro Single-Line Sliding LED Dot-Matrix Banner */
-        .retro-led-banner { position: fixed; top: 0; left: 0; width: 100vw; height: 50px; background-color: #000000; z-index: 1000; border-bottom: 3px solid #111; box-shadow: 0 4px 20px rgba(0,0,0,0.9); display: flex; align-items: center; overflow: hidden; }
+        /* Authentic Dot-Matrix LED Banner (Theme-Reactive via var(--accent-color)) */
+        .retro-led-banner { position: fixed; top: 0; left: 0; width: 100vw; height: 55px; background-color: #000000; z-index: 1000; border-bottom: 3px solid #111; box-shadow: 0 4px 20px rgba(0,0,0,0.9); display: flex; align-items: center; overflow: hidden; }
         .retro-led-track { display: flex; white-space: nowrap; animation: retroScroll 20s linear infinite; will-change: transform; }
-        .retro-led-text { font-family: 'Courier New', Courier, monospace; font-size: 1.6rem; font-weight: 900; letter-spacing: 5px; color: var(--accent-color, #0071e3); text-transform: uppercase; padding-right: 80px; text-shadow: 0 0 10px var(--accent-color, #0071e3), 0 0 2px #fff; filter: drop-shadow(0 0 2px var(--accent-color)); }
+        .retro-led-text { font-family: 'Courier New', Courier, monospace; font-size: 1.5rem; font-weight: 900; letter-spacing: 6px; color: var(--accent-color, #0071e3); text-transform: uppercase; padding-right: 80px; background-image: radial-gradient(var(--accent-color, #0071e3) 65%, transparent 35%); background-size: 6px 6px; -webkit-background-clip: text; -webkit-text-fill-color: transparent; text-shadow: 0 0 8px var(--accent-color, #0071e3); filter: drop-shadow(0 0 2px var(--accent-color)); }
         @keyframes retroScroll { 0% { transform: translateX(0); } 100% { transform: translateX(-50%); } }
         
         /* Background Slider & 65% Black Dotted Opacity Overlay */
@@ -33,7 +33,7 @@
     </style>
 </head>
 <body>
-    <!-- Authentic Retro Single-Line Sliding LED Dot-Matrix Banner -->
+    <!-- Authentic Retro Single-Line Sliding LED Dot-Matrix Banner (Dotted Font Raster & Dynamic Theme Color) -->
     <div class="retro-led-banner">
         <div class="retro-led-track">
             <span class="retro-led-text">&bull; &bull; &bull; LIVE STAGE SYSTEM ONLINE &bull; SETLIST SYNC ACTIVE &bull; READY FOR PERFORMANCE &bull; &bull; &bull;</span>
@@ -95,7 +95,6 @@
     <script src="core/app.js"></script>
     <script>
         document.addEventListener("DOMContentLoaded", async () => {
-            // Fallback default photos array pointing directly to root img folder if config takes time to load
             let photos = [];
             
             setTimeout(async () => {
@@ -106,7 +105,6 @@
                     }
                 }
                 
-                // Fallback mechanism if configuration object is missing photos array
                 if (photos.length === 0) {
                     photos = ["img/hero-bg1.jpg", "img/hero-bg2.jpg"]; 
                 }
@@ -123,7 +121,6 @@
             photos.forEach((photoUrl, index) => {
                 const div = document.createElement("div");
                 div.className = "bg-slider" + (index === 0 ? " active" : "");
-                // Ensure proper root path formatting for img directory
                 const formattedUrl = photoUrl.startsWith("http") || photoUrl.startsWith("/") ? photoUrl : (photoUrl.startsWith("img/") ? photoUrl : "img/" + photoUrl);
                 div.style.backgroundImage = `url('${formattedUrl}')`;
                 container.appendChild(div);
@@ -133,7 +130,7 @@
                 let currentIndex = 0;
                 const slides = container.getElementsByClassName("bg-slider");
                 
-                // 2 seconds shuffle timing interval requested
+                // 2 seconds smooth shutter/shuffle interval
                 setInterval(() => {
                     if (slides && slides.length > 0) {
                         slides[currentIndex].classList.remove("active");
