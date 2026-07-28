@@ -1,1 +1,77 @@
-(function () {     'use strict';     window.BandApp = {         config: null,         activeTheme: 'base',         themes: {             hero: {                 name: "hero",                 variables: {                     "--bg-primary": "#05070a", "--bg-secondary": "#151922", "--bg-surface": "rgba(30, 36, 48, 0.75)",                     "--text-main": "#f0f4f8", "--text-muted": "#8a99ad", "--accent-color": "#e63946",                     "--accent-hover": "#ff4d5a", "--border-color": "rgba(230, 57, 70, 0.3)",                     "--font-family": "'Oswald', sans-serif", "--card-radius": "4px",                     "--box-shadow": "0 8px 24px rgba(230, 57, 70, 0.25)", "--header-transform": "uppercase"                 }             },             base: {                 name: "base",                 variables: {                     "--bg-primary": "#0d1117", "--bg-secondary": "#161b22", "--bg-surface": "rgba(22, 27, 34, 0.75)",                     "--text-main": "#c9d1d9", "--text-muted": "#8b949e", "--accent-color": "#0071e3",                     "--accent-hover": "#0077ed", "--border-color": "rgba(0, 113, 227, 0.3)",                     "--font-family": "-apple-system, sans-serif", "--card-radius": "12px",                     "--box-shadow": "0 4px 20px rgba(0, 0, 0, 0.3)", "--header-transform": "none"                 }             },             rams: {                 name: "rams",                 variables: {                     "--bg-primary": "#1a1a1a", "--bg-secondary": "#262626", "--bg-surface": "rgba(38, 38, 38, 0.8)",                     "--text-main": "#f2f0eb", "--text-muted": "#999999", "--accent-color": "#ff4500",                     "--accent-hover": "#e03e00", "--border-color": "rgba(255, 69, 0, 0.3)",                     "--font-family": "'Courier New', monospace", "--card-radius": "0px",                     "--box-shadow": "none", "--header-transform": "uppercase"                 }             }         },         async init() {             try {                 const res = await fetch("config.json");                 if (res.ok) this.config = await res.json();             } catch (e) {}              // Attempt to fetch fresh metadata from remote band-info if URL available             if (this.config && this.config.google_sheets_api_url) {                 try {                     const remoteRes = await fetch(`${this.config.google_sheets_api_url}?action=readTab&tab=band-info`);                     const json = await remoteRes.json();                     if (json.status === "success" && json.data.length > 0) {                         const rInfo = json.data[0];                         if (rInfo.BandName) this.config.band_name = rInfo.BandName;                         if (rInfo.BandMembers) {                             this.config.band_members = typeof rInfo.BandMembers === 'string'                                  ? rInfo.BandMembers.split(',').map(m => m.trim())                                  : rInfo.BandMembers;                         }                         if (rInfo.ActiveTheme && this.themes[rInfo.ActiveTheme]) {                             this.config.active_theme = rInfo.ActiveTheme;                         }                     }                 } catch (err) {}             }              const localTheme = localStorage.getItem("band_app_theme");             if (localTheme && this.themes[localTheme]) {                 this.applyTheme(localTheme);             } else {                 const configTheme = this.config ? this.config.active_theme : "base";                 this.applyTheme(configTheme);             }         },         applyTheme(themeKey) {             const theme = this.themes[themeKey] || this.themes.base;             this.activeTheme = theme.name;             localStorage.setItem("band_app_theme", theme.name);             const root = document.documentElement;             Object.entries(theme.variables).forEach(([p, v]) => root.style.setProperty(p, v));             document.body.setAttribute("data-theme", theme.name);         },         saveThemeSelection(themeKey) {             this.applyTheme(themeKey);         }     };     document.addEventListener("DOMContentLoaded", () => window.BandApp.init()); })();
+class BandAppController {
+    constructor() {
+        this.config = {};
+        this.currentTheme = localStorage.getItem("band_app_theme") || "base";
+        this.init();
+    }
+
+    async init() {
+        // Apply theme immediately on load to prevent flash of unstyled content
+        this.applyTheme(this.currentTheme);
+
+        try {
+            const res = await fetch("config.json");
+            if (res.ok) {
+                this.config = await res.json();
+                // If config specifies a theme and local storage isn't set, respect config
+                if (this.config.active_theme && !localStorage.getItem("band_app_theme")) {
+                    this.currentTheme = this.config.active_theme;
+                    this.applyTheme(this.currentTheme);
+                }
+            }
+        } catch (e) {
+            console.warn("BandApp: Running in local fallback mode (config.json unavailable).");
+        }
+    }
+
+    applyTheme(themeKey) {
+        this.currentTheme = themeKey;
+        document.documentElement.setAttribute("data-theme", themeKey);
+        
+        // Apply inline design token mappings for absolute cross-browser reliability
+        const root = document.documentElement;
+        if (themeKey === 'hero') {
+            root.style.setProperty('--bg-primary', '#000000');
+            root.style.setProperty('--bg-secondary', '#121212');
+            root.style.setProperty('--bg-surface', 'rgba(20, 20, 20, 0.85)');
+            root.style.setProperty('--border-color', 'rgba(255, 59, 48, 0.3)');
+            root.style.setProperty('--text-main', '#ffffff');
+            root.style.setProperty('--text-muted', '#a0a0a5');
+            root.style.setProperty('--accent-color', '#ff3b30');
+            root.style.setProperty('--font-family', '"Oswald", sans-serif');
+            root.style.setProperty('--header-transform', 'uppercase');
+            root.style.setProperty('--card-radius', '8px');
+        } else if (themeKey === 'rams') {
+            root.style.setProperty('--bg-primary', '#f4f4f0');
+            root.style.setProperty('--bg-secondary', '#e8e8df');
+            root.style.setProperty('--bg-surface', 'rgba(255, 255, 255, 0.9)');
+            root.style.setProperty('--border-color', '#d0d0c8');
+            root.style.setProperty('--text-main', '#111111');
+            root.style.setProperty('--text-muted', '#555555');
+            root.style.setProperty('--accent-color', '#e55a00');
+            root.style.setProperty('--font-family', '"Courier New", Courier, monospace');
+            root.style.setProperty('--header-transform', 'none');
+            root.style.setProperty('--card-radius', '4px');
+        } else {
+            // Default: Base (Apple Clean)
+            root.style.setProperty('--bg-primary', '#0d1117');
+            root.style.setProperty('--bg-secondary', '#161b22');
+            root.style.setProperty('--bg-surface', 'rgba(22, 27, 34, 0.85)');
+            root.style.setProperty('--border-color', '#30363d');
+            root.style.setProperty('--text-main', '#c9d1d9');
+            root.style.setProperty('--text-muted', '#8b949e');
+            root.style.setProperty('--accent-color', '#1f6feb');
+            root.style.setProperty('--font-family', '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif');
+            root.style.setProperty('--header-transform', 'none');
+            root.style.setProperty('--card-radius', '12px');
+        }
+    }
+
+    saveThemeSelection(themeKey) {
+        localStorage.setItem("band_app_theme", themeKey);
+        this.applyTheme(themeKey);
+    }
+}
+
+// Global initialization
+window.BandApp = new BandAppController();
