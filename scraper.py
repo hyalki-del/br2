@@ -1,0 +1,156 @@
+import os
+import re
+import json
+import time
+import urllib.parse
+import requests
+from playwright.sync_api import sync_playwright
+
+def clean_title(text):
+    text = re.sub(r'\(.*?\)', '', text)
+    text = re.sub(r'\[.*?\]', '', text)
+    text = re.sub(r'(?i)\b(chords|tab|tabs|official|acoustic|live|remastered)\b', '', text)
+    return text.strip()
+
+def extract_songs_from_node(node):
+    songs = []
+    def recurse(obj):
+        if isinstance(obj, dict):
+            s_name = obj.get("song_name") or obj.get("song_title") or obj.get("title")
+            a_name = obj.get("artist_name") or obj.get("artist")
+            if s_name and a_name and isinstance(s_name, str) and isinstance(a_name, str):
+                if not ("playlist" in s_name.lower() and "ultimate" in a_name.lower()):
+                    songs.append({"songName": s_name.strip(), "artistName": a_name.strip()})
+                    return
+            for k, v in obj.items():
+                recurse(v)
+        elif isinstance(obj, list):
+            for item in obj:
+                recurse(item)
+    recurse(node)
+    seen = set()
+    deduped = []
+    for s in songs:
+        key = f"{s['songName'].lower()}___{s['artistName'].lower()}"
+        if key not in seen:
+            seen.add(key)
+            deduped.append(s)
+    return deduped
+
+def main():
+    if not os.path.exists("config.json"):
+        print("Error: config.json missing in root directory.")
+        return
+
+    with open("config.json", "r", encoding="utf-8") as f:
+        config = json.load(f)
+
+    ug_url = config.get("ug_playlist_link") or config.get("ug_link")
+    gas_url = os.environ.get("GOOGLE_SCRIPT_URL") or config.get("google_sheets_api_url")
+
+    if not ug_url or not gas_url:
+        print("Error: Missing UG link or Apps Script URL in config.json.")
+        return
+
+    print(f"Scraping UG via Playwright Chromium: {ug_url}")
+    scraped_songs = []
+
+    try:
+        with sync_playwright() as p:
+            browser = p.chromium.launch(headless=True)
+            page = browser.new_page(user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36")
+            page.goto(ug_url, wait_until="domcontentloaded", timeout=35000)
+            page.wait_for_timeout(5000)
+
+            store_data = page.evaluate("() => window.UGAPP?.store?.page || null")
+            if store_data:
+                scraped_songs = extract_songs_from_node(store_data)
+
+            if not scraped_songs:
+                links = page.query_selector_all("a[href*='/tab/']")
+                for link in links:
+                    text = link.inner_text().strip()
+                    if text and "-" in text:
+                        parts = text.split("-")
+                        scraped_songs.append({"songName": parts[0].strip(), "artistName": parts[1].strip()})
+            browser.close()
+    except Exception as e:
+        print(f"Scraping error: {e}")
+
+    if not scraped_songs and os.path.exists("playlist.json"):
+        with open("playlist.json", "r", encoding="utf-8") as f:
+            scraped_songs = json.load(f)
+
+    print(f"Scraped {len(scraped_songs)} songs from UG.")
+    if len(scraped_songs) == 0:
+        print("Aborting Google Sheets sync to prevent clearing spreadsheet.")
+        return
+
+    try:
+        requests.post(gas_url, json={"action": "syncScrapedPlaylist", "payload": {"songs": scraped_songs}}, timeout=20)
+    except Exception as e:
+        print(f"Error syncing Google Sheets: {e}")
+
+    updated_playlist = []
+    try:
+        res = requests.get(f"{gas_url}?action=readTab&tab=song-info", timeout=15)
+        json_data = res.json()
+        if json_data.get("status") == "success":
+            for idx, row in enumerate(json_data.get("data", [])):
+                updated_playlist.append({
+                    "index": row.get("Index", idx + 1),
+                    "songName": row.get("Song Name", ""),
+                    "artistName": row.get("Artist Name", ""),
+                    "key": row.get("Key", "")
+                })
+    except Exception:
+        updated_playlist = scraped_songs
+
+    with open("playlist.json", "w", encoding="utf-8") as f:
+        json.dump(updated_playlist, f, indent=2, ensure_ascii=False)
+
+    os.makedirs("songs", exist_ok=True)
+    for idx, track in enumerate(updated_playlist, start=1):
+        raw_title = track.get("songName", "").strip()
+        raw_artist = track.get("artistName", "").strip()
+        if not raw_title or not raw_artist:
+            continue
+
+        c_title = clean_title(raw_title)
+        c_artist = clean_title(raw_artist)
+
+        safe_song = re.sub(r'-+', '-', re.sub(r'[^a-zA-Z0-9]', '-', raw_title.lower())).strip('-')
+        safe_artist = re.sub(r'-+', '-', re.sub(r'[^a-zA-Z0-9]', '-', raw_artist.lower())).strip('-')
+        file_path = os.path.join("songs", f"{idx}-{safe_song}-{safe_artist}.txt")
+
+        if os.path.exists(file_path):
+            continue
+
+        print(f"Fetching lyrics [{idx}]: {c_title} - {c_artist}")
+        lyrics_text = ""
+        try:
+            q_url = f"https://lrclib.net/api/get?artist_name={urllib.parse.quote(c_artist)}&track_name={urllib.parse.quote(c_title)}"
+            r = requests.get(q_url, timeout=10)
+            if r.status_code == 200:
+                lyrics_text = r.json().get("plainLyrics") or r.json().get("syncedLyrics") or ""
+        except Exception:
+            pass
+
+        if not lyrics_text:
+            try:
+                s_url = f"https://lrclib.net/api/search?q={urllib.parse.quote(c_title + ' ' + c_artist)}"
+                sr = requests.get(s_url, timeout=10)
+                if sr.status_code == 200 and len(sr.json()) > 0:
+                    lyrics_text = sr.json()[0].get("plainLyrics") or sr.json()[0].get("syncedLyrics") or ""
+            except Exception:
+                pass
+
+        if not lyrics_text:
+            lyrics_text = f"Lyrics for '{raw_title}' by '{raw_artist}' could not be located."
+
+        with open(file_path, "w", encoding="utf-8") as lf:
+            lf.write(f"Title: {raw_title}\nArtist: {raw_artist}\n\n" + lyrics_text)
+        time.sleep(0.4)
+
+if __name__ == "__main__":
+    main()
