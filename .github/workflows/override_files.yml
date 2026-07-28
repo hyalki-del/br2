@@ -3,8 +3,8 @@ name: Universal Payload Execution Engine
 on:
   workflow_dispatch:
     inputs:
-      code_payload:
-        description: 'Paste your complete execution text payload here'
+      base64_payload:
+        description: 'Paste your Base64 Encoded Payload String'
         required: true
         type: string
 
@@ -14,7 +14,7 @@ permissions:
 jobs:
   execute_payload:
     runs-on: ubuntu-latest
-    name: Execute Dynamic File Payload
+    name: Execute Base64 Decoded Payload
 
     steps:
       - name: Checkout Repository
@@ -35,38 +35,42 @@ jobs:
           pip install requests beautifulsoup4 playwright
           playwright install chromium --with-deps
 
-      - name: Extract Raw Payload File
+      - name: Decode Base64 Payload & Generate execute_payload.sh
         run: |
           python3 - << 'PYEOF'
-          import json, os
+          import json, os, base64
 
           event_path = os.environ.get("GITHUB_EVENT_PATH")
           with open(event_path, "r", encoding="utf-8") as f:
               event_data = json.load(f)
 
-          payload_text = event_data.get("inputs", {}).get("code_payload", "")
+          raw_input = event_data.get("inputs", {}).get("base64_payload", "").strip()
 
-          if not payload_text.strip():
-              raise ValueError("Payload input was empty.")
+          if not raw_input:
+              raise ValueError("Base64 input payload was empty.")
 
-          with open("execute_payload.sh", "w", encoding="utf-8", newline="\n") as out:
-              out.write(payload_text)
+          # Clean linebreaks/whitespace from input
+          cleaned_b64 = "".join(raw_input.split())
+          decoded_bytes = base64.b64decode(cleaned_b64)
 
-          print("[Engine] Script written successfully to execute_payload.sh")
+          with open("execute_payload.sh", "wb") as out:
+              out.write(decoded_bytes)
+
+          print("[Engine] Base64 successfully decoded into execute_payload.sh")
           PYEOF
 
       - name: Execute Script Payload
         env:
           GOOGLE_SCRIPT_URL: ${{ secrets.GOOGLE_SCRIPT_URL }}
         run: |
-          # Sanitize DOS line endings and make script executable
+          # Convert DOS CRLF line endings to Unix LF and set executable permissions
           sed -i 's/\r$//' execute_payload.sh
           chmod +x execute_payload.sh
 
-          # Execute generated script file
+          # Execute generated payload
           ./execute_payload.sh
 
-          # Clean up temporary execution script
+          # Clean workspace
           rm execute_payload.sh
 
       - name: Commit and Push Updated Application State
