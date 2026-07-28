@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
     inputs:
       code_payload:
-        description: 'Paste your HTML/JS payload here'
+        description: 'Paste plain-text multi-file payload here'
         required: false
         type: string
 
@@ -14,7 +14,7 @@ permissions:
 jobs:
   execute_payload:
     runs-on: ubuntu-latest
-    name: Unpack Web Shells & Execute Scraper
+    name: Unpack Frontend & Execute Setlist Sync Engine
 
     steps:
       - name: Checkout Repository
@@ -28,138 +28,12 @@ jobs:
         with:
           python-version: '3.11'
 
-      - name: Install System Dependencies & Playwright
+      - name: Install System Dependencies & Playwright Chromium
         run: |
           mkdir -p core .github/workflows songs
           python -m pip install --upgrade pip
           pip install requests beautifulsoup4 playwright
           playwright install chromium --with-deps
-
-      - name: Write Native Pristine scraper.py
-        run: |
-          python3 -c "
-          import base64
-          b64_code = '''
-          aW1wb3J0IG9zCmltcG9ydCByZQppbXBvcnQganNvbgppbXBvcnQgdGltZQppbXBvcnQgdXJs
-          bGliLnBhcnNlCmltcG9ydCByZXF1ZXN0cwpmcm9tIHBsYXl3cmlnaHQuc3luY19hcGkgaW1w
-          b3J0IHN5bmNfcGxheXdyaWdodAoKZGVmIGNsZWFuX3RpdGxlKHRleHQpOgogICAgdGV4dCA9
-          IHJlLnN1YihyJ1woLio/XCknLCAnJywgdGV4dCkKICAgIHRleHQgPSByZS5zdWIocidcWy4q
-          P1xdJywgJycsIHRleHQpCiAgICB0ZXh0ID0gcmUuc3ViKHInKD9pKTViKGNob3Jkc3x0YWJ8
-          dGFic3xvZmZpY2lhbHxhY291c3RpY3xsaXZlfHJlbWFzdGVyZWQpXGInLCAnJywgdGV4dCkK
-          ICAgIHJldHVybiB0ZXh0LnN0cmlwKCkKCgpkZWYgZXh0cmFjdF9zb25nc19mcm9tX25vZGUo
-          bm9kZSk6CiAgICBzb25ncyA9IFtdCiAgICBkZWYgcmVjdXJzZShvYmopOgogICAgICAgIGlm
-          IGluc3RhbmNlKG9iaiwgZGljdCk6CiAgICAgICAgICAgIHNfbmFtZSA9IG9iai5nZXQoInNv
-          bmdfbmFtZSIpIG9yIG9iai5nZXQoInNvbmdfdGl0bGUiKSBvciBvYmouZ2V0KCJ0aXRsZSIp
-          CiAgICAgICAgICAgIGFfbmFtZSA9IG9iai5nZXQoImFydGlzdF9uYW1lIikgb3Igb2JqLmdl
-          dCgiYXJ0aXN0IikKICAgICAgICAgICAgaWYgc19uYW1lIGFuZCBhX25hbWUgYW5kIGluc3Rh
-          bmNlKHNfbmFtZSwgc3RyKSBhbmQgaW5zdGFuY2UoYV9uYW1lLCBzdHIpOgogICAgICAgICAg
-          ICAgICAgaWYgbm90ICgicGxheWxpc3QiIGluIHNfbmFtZS5sb3dlcigpIGFuZCAidWx0aW1h
-          dGUiIGluIGFfbmFtZS5sb3dlcigpKToKICAgICAgICAgICAgICAgICAgICBzb25ncy5hcHBl
-          bmQoeyJzb25nTmFtZSI6IHNfbmFtZS5zdHJpcCgpLCAiYXJ0aXN0TmFtZSI6IGFfbmFtZS5z
-          dHJpcCgpfSkKICAgICAgICAgICAgICAgICAgICByZXR1cm4KICAgICAgICAgICAgZm9yIGss
-          IHYgaW4gb2JqLml0ZW1zKCk6CiAgICAgICAgICAgICAgICByZWN1cnNlKHYpCiAgICAgICAg
-          ZWxpZiBpbnN0YW5jZShvYmosIGxpc3QpOgogICAgICAgICAgICBmb3IgaXRlbSBpbiBvYmo6
-          CiAgICAgICAgICAgICAgICByZWN1cnNlKGl0ZW0pCiAgICByZWN1cnNlKG5vZGUpCiAgICBz
-          ZWVuID0gc2V0KCkKICAgIGRlZHVwZWQgPSBbXQogICAgZm9yIHMgaW4gc29uZ3M6CiAgICAg
-          ICAga2V5ID0gZiJ7c1snc29uZ05hbWUnXS5sb3dlcigpfV9fX3tzWydhcnRpc3ROYW1lJ10u
-          bG93ZXIoKX0iCiAgICAgICAgaWYga2V5IG5vdCBpbiBzZWVuOgogICAgICAgICAgICBzZWVu
-          LmFkZChrZXkpCiAgICAgICAgICAgIGRlZHVwZWQuYXBwZW5kKHMpCiAgICByZXR1cm4gZGVk
-          dXBlZAoKCgpkZWYgbWFpbigpOgogICAgaWYgbm90IG9zLnBhdGguZXhpc3RzKCJjb25maWcu
-          anNvbiIpOgogICAgICAgIHByaW50KCJFcnJvcjogY29uZmlnLmpzb24gbWlzc2luZyBpbiBy
-          b290IGRpcmVjdG9yeS4iKQogICAgICAgIHJldHVybgoKICAgIHdpdGggb3BlbigiY29uZmln
-          Lmpzb24iLCAiciIsIGVuY29kaW5nPSJ1dGYtOCIpIGFzIGY6CiAgICAgICAgY29uZmlnID0g
-          anNvbi5sb2FkKGYpCgogICAgdWdfdXJsID0gY29uZmlnLmdldCgidWdfcGxheWxpc3RfbGlu
-          ayIpIG9yIGNvbmZpZy5nZXQoInVnX2xpbmsiKQogICAgZ2FzX3VybCA9IG9zLmVudmlyb24u
-          Z2V0KCJHT09HTEVfU0NSSVBUX1VSTCIpIG9yIGNvbmZpZy5nZXQoImdvb2dsZV9zaGVldHNf
-          YXBpX3VybCIpCgogICAgaWYgbm90IHVnX3VybCBvciBub3QgZ2FzX3VybDoKICAgICAgICBw
-          cmludCgiRXJyb3I6IE1pc3NpbmcgVUcgbGluayBvciBBcHBzIFNjcmlwdCBVUkwgaW4gY29u
-          ZmlnLmpzb24uIikKICAgICAgICByZXR1cm4KCiAgICBwcmludChmIlNjcmFwaW5nIFVHIHZp
-          YSBQbGF5d3JpZ2h0IENocm9taXVtOiB7dWdfdXJsfSIpCiAgICBzY3JhcGVkX3NvbmdzID0g
-          W10KCiAgICB0cnk6CiAgICAgICAgd2l0aCBzeW5jX3BsYXl3cmlnaHQoKSBhcyBwOgogICAg
-          ICAgICAgICBicm93c2VyID0gcC5jaHJvbWl1bS5sYXVuY2goaGVhZGxlc3M9VHJ1ZSkKICAg
-          ICAgICAgICAgcGFnZSA9IGJyb3dzZXIubmV3X3BhZ2UodXNlcl9hZ2VudD0iTW96aWxsYS81
-          LjAgKFdpbmRvd3MgTlQgMTAuMDsgV2luNjQ7IHg2NCkgQXBwbGVXZWJLaXQvNTM3LjM2IChL
-          SFRNTCwgbGlrZSBHZWNrbykgQ2hyb21lLzEyNi4wLjAuMCBTYWZhcmkvNTM3LjM2IikKICAg
-          ICAgICAgICAgcGFnZS5nb3RvKHVnX3VybCwgd2FpdF91bnRpbD0iZG9tY29udGVudGxvYWRl
-          ZCIsIHRpbWVvdXQ9MzUwMDApCiAgICAgICAgICAgIHBhZ2Uud2FpdF9mb3JfdGltZW91dCg1
-          MDAwKQoKICAgICAgICAgICAgc3RvcmVfZGF0YSA9IHBhZ2UuZXZhbHVhdGUoIigpID0+IHdp
-          bmRvdy5VR0FQUA8uc3RvcmU/LnBhZ2UgfHwgbnVsbCIpCiAgICAgICAgICAgIGlmIHN0b3Jl
-          X2RhdGE6CiAgICAgICAgICAgICAgICBzY3JhcGVkX3NvbmdzID0gZXh0cmFjdF9zb25nc19m
-          cm9tX25vZGUoc3RvcmVfZGF0YSkKCiAgICAgICAgICAgIGlmIG5vdCBzY3JhcGVkX3Nvbmdz
-          OgogICAgICAgICAgICAgICAgbGlua3MgPSBwYWdlLnF1ZXJ5X3NlbGVjdG9yX2FsbCgiYVto
-          cmVmKj0nL3RhYi8nXSIpCiAgICAgICAgICAgICAgICBmb3IgbGluayBpbiBsaW5rczoKICAg
-          ICAgICAgICAgICAgICAgICB0ZXh0ID0gbGluay5pbm5lcl90ZXh0KCkuc3RyaXAoKQogICAg
-          ICAgICAgICAgICAgICAgIGlmIHRleHQgYW5kICItIiBpbiB0ZXh0OgogICAgICAgICAgICAg
-          ICAgICAgICAgICBwYXJ0cyA9IHRleHQuc3BsaXQoIi0iKQogICAgICAgICAgICAgICAgICAg
-          ICAgICAgc2NyYXBlZF9zb25ncy5hcHBlbmQoeyJzb25nTmFtZSI6IHBhcnRzWzBdLnN0cmlw
-          KCksICJhcnRpc3ROYW1lIjogcGFydHNbMV0uc3RyaXAoKX0pCiAgICAgICAgICAgIGJyb3dz
-          ZXIuY2xvc2UoKQogICAgZXhjZXB0IEV4Y2VwdGlvbiBhcyBlOgogICAgICAgIHByaW50KGYi
-          U2NyYXBpbmcgZXJyb3I6I3tlfSIpCgogICAgaWYgbm90IHNjcmFwZWRfc29uZ3MgYW5kIG9z
-          LnBhdGguZXhpc3RzKCJwbGF5bGlzdC5qc29uIik6CiAgICAgICAgd2l0aCBvcGVuKCJwbGF5
-          bGlzdC5qc29uIiwgInIiLCBlbmNvZGluZz0idXRmLTgiKSBhcyBmOgogICAgICAgICAgICBz
-          Y3JhcGVkX3NvbmdzID0ganNvbi5sb2FkKGYpCgogICAgcHJpbnQoZiJTY3JhcGVkIHtsZW4o
-          c2NyYXBlZF9zb25ncyl9IHNvbmdzIGZyb20gVUcuIikKICAgIGlmIGxlbihzY3JhcGVkX3Nv
-          bmdzKSA9PSAwOgogICAgICAgIHByaW50KCJBYm9ydGluZyBHb29nbGUgU2hlZXRzIHN5bmMg
-          dG8gcHJldmVudCBjbGVhcmluZyBzcHJlYWRzaGVldC4iKQogICAgICAgIHJldHVybgoKICAg
-          IHRyeToKICAgICAgICByZXF1ZXN0cy5wb3N0KGdhc191cmwsIGpzb249eyJhY3Rpb24iOiAi
-          c3luY1NjcmFwZWRQbGF5bGlzdCIsICJwYXlsb2FkIjogeyJzb25ncyI6IHNjcmlwZWRfc29u
-          Z3N9fSwgdGltZW91dD0yMCkKICAgIGV4Y2VwdCBFeGNlcHRpb24gYXMgZToKICAgICAgICBw
-          cmludChmIkVycm9yIHN5bmNpbmcgR29vZ2xlIFNoZWV0czoge2V9IikKCiAgICB1cGRhdGVk
-          X3BsYXlsaXN0ID0gW10KICAgIHRyeToKICAgICAgICByZXMgPSByZXF1ZXN0cy5nZXQoZiJ7
-          Z2FzX3VybH0/YWN0aW9uPXJlYWRUYWImdGFiPXNvbmctaW5mbyIsIHRpbWVvdXQ9MTUpCiAg
-          ICAgICAganNvbl9kYXRhID0gcmVzLmpzb24oKQogICAgICAgIGlmIGpzb25fZGF0YS5nZXQo
-          InN0YXR1cyIpID09ICJzdWNjZXNzIjoKICAgICAgICAgICAgZm9yIGlkeCwgcm93IGluIGVu
-          dW1lcmF0ZShqc29uX2RhdGEuZ2V0KCJkYXRhIiwgW10pKToKICAgICAgICAgICAgICAgIHVw
-          ZGF0ZWRfcGxheWxpc3QuYXBwZW5kKHsKICAgICAgICAgICAgICAgICAgICAiaW5kZXgiOiBy
-          b3cuZ2V0KCJJbmRleCIsIGlkeCArIDEpLAogICAgICAgICAgICAgICAgICAgICJzb25nTmFt
-          ZSI6IHJvdy5nZXQoIlNvbmcgTmFtZSIsICIiKSwKICAgICAgICAgICAgICAgICAgICAiYXJ0
-          aXN0TmFtZSI6IHJvdy5nZXQoIkFydGlzdCBOYW1lIiwgIiIpLAogICAgICAgICAgICAgICAg
-          ICAgICJrZXkiOiByb3cuZ2V0KCJLZXkiLCAiIikKICAgICAgICAgICAgICAgIH0pCiAgICBl
-          eGNlcHQgRXhjZXB0aW9uOgogICAgICAgIHVwZGF0ZWRfcGxheWxpc3QgPSBzY3JhcGVkX3Nv
-          bmdzCgogICAgd2l0aCBvcGVuKCJwbGF5bGlzdC5qc29uIiwgInciLCBlbmNvZGluZz0idXRm
-          LTgiKSBhcyBmOgogICAgICAgIGpzb24uZHVtcCh1cGRhdGVkX3BsYXlsaXN0LCBmLCBpbmRl
-          bnQ9MiwgZW5zdXJlX2FzY2lpPUZhbHNlKQoKICAgIG9zLm1ha2VkaXJzKCJzb25ncyIsIGV4
-          aXN0X29rPVRydWUpCiAgICBmb3IgaWR4LCB0cmFjayBpbiBlbnVtZXJhdGUodXBkYXRlZF9w
-          bGF5bGlzdCwgc3RhcnQ9MSk6CiAgICAgICAgcmF3X3RpdGxlID0gdHJhY2suZ2V0KCJzb25n
-          TmFtZSIsICIiKS5zdHJpcCgpCiAgICAgICAgcmF3X2FydGlzdCA9IHRyYWNrLmdldCgiYXJ0
-          aXN0TmFtZSIsICIiKS5zdHJpcCgpCiAgICAgICBpaWYgbm90IHJhd190aXRsZSBvciBub3Qg
-          cmF3X2FydGlzdDogY29udGludWUKCiAgICAgICAgY190aXRsZSA9IGNsZWFuX3RpdGxlKHJh
-          d190aXRsZSkKICAgICAgICBjX2FydGlzdCA9IGNsZWFuX3RpdGxlKHJhd19hcnRpc3QpCgog
-          ICAgICAgIHNhZmVfc29uZyA9IHJlLnN1YihyJy0rJywgJy0nLCByZS5zdWIocidbXmEtekEt
-          WjAtOV0nLCAnLScsIHJhd190aXRsZS5sb3dlcigpKSkuc3RyaXAoJy0nKQogICAgICAgIHNh
-          ZmVfYXJ0aXN0ID0gcmUuc3ViKHInLSsnLCAnLScsIHJlLnN1YihyJ1teYS16QS1aMC05XScs
-          ICctJywgcmF3X2FydGlzdC5sb3dlcigpKSkuc3RyaXAoJy0nKQogICAgICAgIGZpbGVfcGF0
-          aCA9IG9zLnBhdGguam9pbigic29uZ3MiLCBmIntpZHh9LXtzYWZlX3Nvbmd9LXtzYWZlX2Fy
-          dGlzdH0udHh0IikKCiAgICAgICAgaWYgb3MucGF0aC5leGlzdHMoZmlsZV9wYXRoKTogY29u
-          dGludWUKCiAgICAgICAgcHJpbnQoZiJGZXRjaGluZyBseXJpY3MgW3tpZHh9XToge2NfdGl0
-          bGV9IC0ge2NfYXJ0aXN0fSIpCiAgICAgICAgbHlyaWNzX3RleHQgPSAiIgogICAgICAgIHRy
-          eToKICAgICAgICAgICAgcV91cmwgPSBmImh0dHBzOi8vbHJjbGliLm5ldC9hcGkvZ2V0P2Fy
-          dGlzdF9uYW1lPXt1cmxsaWIucGFyc2UucXVvdGUoY19hcnRpc3QpfSZ0cmFja19uYW1lPXt1
-          cmxsaWIucGFyc2UucXVvdGUoY190aXRsZSl9IgogICAgICAgICAgICByID0gcmVxdWVzdHMu
-          Z2V0KHFfdXJsLCB0aW1lb3V0PTEwKQogICAgICAgICAgICBpZiByLnN0YXR1c19jb2RlID09
-          IDIwMDoKICAgICAgICAgICAgICAgIGx5cmljc190ZXh0ID0gci5qc29uKCkuZ2V0KCJwbGFp
-          bkx5cmljcyIpIG9yIHIuanNvbigpLmdldCgic3luY2VkTHlyaWNzIikgb3IgIiIKICAgICAg
-          ICBleGNlcHQgRXhjZXB0aW9uOiBwYXNzCgogICAgICAgIGlmIG5vdCBseXJpY3NfdGV4dDoK
-          ICAgICAgICAgICAgdHJ5OgogICAgICAgICAgICAgICAgc191cmwgPSBmImh0dHBzOi8vbHJj
-          bGliLm5ldC9hcGkvc2VhcmNoP3E9e3VybGxpYi5wYXJzZS5xdW90ZShjX3RpdGxlICsgJyAn
-          ICsgY19hcnRpc3QpfSIKICAgICAgICAgICAgICAgIHNyID0gcmVxdWVzdHMuZ2V0KHNfdXJs
-          LCB0aW1lb3V0PTEwKQogICAgICAgICAgICAgICAgaWYgc3Iuc3RhdHVzX2NvZGUgPT0gMjAw
-          IGFuZCBsZW4oc3IuanNvbigpKSA+IDA6CiAgICAgICAgICAgICAgICAgICAgbHlyaWNzX3Rl
-          eHQgPSBzci5qc29uKClbMF0uZ2V0KCJwbGFpbkx5cmljcyIpIG9yIHNyLmpzb24oKVswXS5n
-          ZXQoInN5bmNlZEx5cmljcyIpIG9yICIiCiAgICAgICAgICAgIGV4Y2VwdCBFeGNlcHRpb246
-          IHBhc3MKCiAgICAgICAgaWYgbm90IGx5cmljc190ZXh0OgogICAgICAgICAgICBseXJpY3Nf
-          dGV4dCA9IGYiTHlyaWNzIGZvciAne3Jhd190aXRsZX0nIGJ5ICd7cmF3X2FydGlzdH0nIGNv
-          dWxkIG5vdCBiZSBsb2NhdGVkLiIKCiAgICAgICAgd2l0aCBvcGVuKGZpbGVfcGF0aCwgInci
-          LCBlbmNvZGluZz0idXRmLTgiKSBhcyBsZjoKICAgICAgICAgICAgbGYud3JpdGUoZiJUaXRs
-          ZToge3Jhd190aXRsZX1cbkFydGlzdDoge3Jhd19hcnRpc3R9XG5cbiIgKyBseXJpY3NfdGV4
-          dCkKICAgICAgICB0aW1lLnNsZWVwKDAuNCkKCmlmIF9fbmFtZV9fID09ICJfX21haW5fXyI6
-          CiAgICBtYWluKCkK
-          '''
-          decoded = base64.b64decode(''.join(b64_code.split())).decode('utf-8')
-          with open('scraper.py', 'w', encoding='utf-8') as f:
-              f.write(decoded)
-          print('[Workflow] Successfully written pristine scraper.py')
-          "
 
       - name: Unpack Web Frontend Payload Files
         env:
@@ -170,41 +44,58 @@ jobs:
 
           raw_text = os.environ.get("RAW_INPUT", "").strip()
           if not raw_text:
-              print("[Workflow] Frontend payload input was empty; skipping web file updates.")
+              print("[Workflow] Frontend payload empty; proceeding directly to execution.")
               exit(0)
 
+          # Parse multi-file payload using delimiter === FILE: path ===
           pattern = r"===\s*FILE:\s*([^\s=]+(?:\/[^\s=]+)*)\s*==="
           tokens = re.split(pattern, raw_text)
 
           if len(tokens) >= 3:
+              files_written = 0
               for i in range(1, len(tokens), 2):
                   filepath = tokens[i].strip()
                   content = tokens[i+1]
+
                   if filepath == "scraper.py":
-                      continue  # Protect scraper.py from being overwritten by form flattening
+                      print("[Workflow] Protected file 'scraper.py' detected in payload. Skipping write to safeguard root script.")
+                      continue
+
                   dirpath = os.path.dirname(filepath)
                   if dirpath:
                       os.makedirs(dirpath, exist_ok=True)
+
                   with open(filepath, "w", encoding="utf-8", newline="\n") as f:
                       f.write(content.strip() + "\n")
-                  print(f"[Engine] Written web asset: {filepath}")
+
+                  print(f"[Engine] Successfully wrote web asset: {filepath}")
+                  files_written += 1
+
+              print(f"[Workflow] Unpacking complete. Total web assets updated: {files_written}")
+          else:
+              print("[Workflow] Header pattern '=== FILE: filepath ===' not detected. No frontend assets modified.")
           PYEOF
 
-      - name: Execute Automated Scraper
+      - name: Execute Native Scraper Engine
         env:
           GOOGLE_SCRIPT_URL: ${{ secrets.GOOGLE_SCRIPT_URL }}
         run: |
-          python3 scraper.py
+          if [ -f "scraper.py" ]; then
+            python3 scraper.py
+          else
+            echo "Error: scraper.py not found in root directory!"
+            exit 1
+          fi
 
-      - name: Commit and Push Updated State
+      - name: Commit and Push Updated Application State
         run: |
           git config --global user.name 'github-actions[bot]'
           git config --global user.email 'github-actions[bot]@users.noreply.github.com'
           git add -A
           
           if git diff --staged --quiet; then
-            echo "No changes detected."
+            echo "No repository changes detected after payload execution."
           else
-            git commit -m "build(payload): executed automated payload update"
+            git commit -m "build(payload): executed web asset update & setlist sync"
             git push
           fi
