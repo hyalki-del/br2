@@ -5,7 +5,7 @@ on:
     inputs:
       code_payload:
         description: 'Paste your HTML/JS payload here'
-        required: true
+        required: false
         type: string
 
 permissions:
@@ -35,169 +35,130 @@ jobs:
           pip install requests beautifulsoup4 playwright
           playwright install chromium --with-deps
 
-      - name: Generate Native scraper.py File
+      - name: Write Native Pristine scraper.py
         run: |
           python3 -c "
-          code = '''import os
-          import re
-          import json
-          import time
-          import urllib.parse
-          import requests
-          from playwright.sync_api import sync_playwright
-
-          def clean_title(text):
-              text = re.sub(r'\(.*?\)', '', text)
-              text = re.sub(r'\[.*?\]', '', text)
-              text = re.sub(r'(?i)\b(chords|tab|tabs|official|acoustic|live|remastered)\b', '', text)
-              return text.strip()
-
-          def extract_songs_from_node(node):
-              songs = []
-              def recurse(obj):
-                  if isinstance(obj, dict):
-                      s_name = obj.get('song_name') or obj.get('song_title') or obj.get('title')
-                      a_name = obj.get('artist_name') or obj.get('artist')
-                      if s_name and a_name and isinstance(s_name, str) and isinstance(a_name, str):
-                          if not ('playlist' in s_name.lower() and 'ultimate' in a_name.lower()):
-                              songs.append({'songName': s_name.strip(), 'artistName': a_name.strip()})
-                              return
-                      for k, v in obj.items():
-                          recurse(v)
-                  elif isinstance(obj, list):
-                      for item in obj:
-                          recurse(item)
-              recurse(node)
-              seen = set()
-              deduped = []
-              for s in songs:
-                  key = f\"{s['songName'].lower()}___{s['artistName'].lower()}\"
-                  if key not in seen:
-                      seen.add(key)
-                      deduped.append(s)
-              return deduped
-
-          def main():
-              if not os.path.exists('config.json'):
-                  print('Error: config.json missing in root directory.')
-                  return
-
-              with open('config.json', 'r', encoding='utf-8') as f:
-                  config = json.load(f)
-
-              ug_url = config.get('ug_playlist_link') or config.get('ug_link')
-              gas_url = os.environ.get('GOOGLE_SCRIPT_URL') or config.get('google_sheets_api_url')
-
-              if not ug_url or not gas_url:
-                  print('Error: Missing UG link or Apps Script URL in config.json.')
-                  return
-
-              print(f'Scraping UG via Playwright Chromium: {ug_url}')
-              scraped_songs = []
-
-              try:
-                  with sync_playwright() as p:
-                      browser = p.chromium.launch(headless=True)
-                      page = browser.new_page(user_agent='Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36')
-                      page.goto(ug_url, wait_until='domcontentloaded', timeout=35000)
-                      page.wait_for_timeout(5000)
-
-                      store_data = page.evaluate('() => window.UGAPP?.store?.page || null')
-                      if store_data:
-                          scraped_songs = extract_songs_from_node(store_data)
-
-                      if not scraped_songs:
-                          links = page.query_selector_all(\"a[href*='/tab/']\")
-                          for link in links:
-                              text = link.inner_text().strip()
-                              if text and '-' in text:
-                                  parts = text.split('-')
-                                  scraped_songs.append({'songName': parts[0].strip(), 'artistName': parts[1].strip()})
-                      browser.close()
-              except Exception as e:
-                  print(f'Scraping error: {e}')
-
-              if not scraped_songs and os.path.exists('playlist.json'):
-                  with open('playlist.json', 'r', encoding='utf-8') as f:
-                      scraped_songs = json.load(f)
-
-              print(f'Scraped {len(scraped_songs)} songs from UG.')
-              if len(scraped_songs) == 0:
-                  print('Aborting Google Sheets sync to prevent clearing spreadsheet.')
-                  return
-
-              try:
-                  requests.post(gas_url, json={'action': 'syncScrapedPlaylist', 'payload': {'songs': scraped_songs}}, timeout=20)
-              except Exception as e:
-                  print(f'Error syncing Google Sheets: {e}')
-
-              updated_playlist = []
-              try:
-                  res = requests.get(f'{gas_url}?action=readTab&tab=song-info', timeout=15)
-                  json_data = res.json()
-                  if json_data.get('status') == 'success':
-                      for idx, row in enumerate(json_data.get('data', [])):
-                          updated_playlist.append({
-                              'index': row.get('Index', idx + 1),
-                              'songName': row.get('Song Name', ''),
-                              'artistName': row.get('Artist Name', ''),
-                              'key': row.get('Key', '')
-                          })
-              except Exception:
-                  updated_playlist = scraped_songs
-
-              with open('playlist.json', 'w', encoding='utf-8') as f:
-                  json.dump(updated_playlist, f, indent=2, ensure_ascii=False)
-
-              os.makedirs('songs', exist_ok=True)
-              for idx, track in enumerate(updated_playlist, start=1):
-                  raw_title = track.get('songName', '').strip()
-                  raw_artist = track.get('artistName', '').strip()
-                  if not raw_title or not raw_artist:
-                      continue
-
-                  c_title = clean_title(raw_title)
-                  c_artist = clean_title(raw_artist)
-
-                  safe_song = re.sub(r'-+', '-', re.sub(r'[^a-zA-Z0-9]', '-', raw_title.lower())).strip('-')
-                  safe_artist = re.sub(r'-+', '-', re.sub(r'[^a-zA-Z0-9]', '-', raw_artist.lower())).strip('-')
-                  file_path = os.path.join('songs', f'{idx}-{safe_song}-{safe_artist}.txt')
-
-                  if os.path.exists(file_path):
-                      continue
-
-                  print(f'Fetching lyrics [{idx}]: {c_title} - {c_artist}')
-                  lyrics_text = ''
-                  try:
-                      q_url = f'https://lrclib.net/api/get?artist_name={urllib.parse.quote(c_artist)}&track_name={urllib.parse.quote(c_title)}'
-                      r = requests.get(q_url, timeout=10)
-                      if r.status_code == 200:
-                          lyrics_text = r.json().get('plainLyrics') or r.json().get('syncedLyrics') or ''
-                  except Exception:
-                      pass
-
-                  if not lyrics_text:
-                      try:
-                          s_url = f'https://lrclib.net/api/search?q={urllib.parse.quote(c_title + \" \" + c_artist)}'
-                          sr = requests.get(s_url, timeout=10)
-                          if sr.status_code == 200 and len(sr.json()) > 0:
-                              lyrics_text = sr.json()[0].get('plainLyrics') or sr.json()[0].get('syncedLyrics') or ''
-                      except Exception:
-                          pass
-
-                  if not lyrics_text:
-                      lyrics_text = f'Lyrics for \"{raw_title}\" by \"{raw_artist}\" could not be located.'
-
-                  with open(file_path, 'w', encoding='utf-8') as lf:
-                      lf.write(f'Title: {raw_title}\nArtist: {raw_artist}\n\n' + lyrics_text)
-                  time.sleep(0.4)
-
-          if __name__ == '__main__':
-              main()
+          import base64
+          b64_code = '''
+          aW1wb3J0IG9zCmltcG9ydCByZQppbXBvcnQganNvbgppbXBvcnQgdGltZQppbXBvcnQgdXJs
+          bGliLnBhcnNlCmltcG9ydCByZXF1ZXN0cwpmcm9tIHBsYXl3cmlnaHQuc3luY19hcGkgaW1w
+          b3J0IHN5bmNfcGxheXdyaWdodAoKZGVmIGNsZWFuX3RpdGxlKHRleHQpOgogICAgdGV4dCA9
+          IHJlLnN1YihyJ1woLio/XCknLCAnJywgdGV4dCkKICAgIHRleHQgPSByZS5zdWIocidcWy4q
+          P1xdJywgJycsIHRleHQpCiAgICB0ZXh0ID0gcmUuc3ViKHInKD9pKTViKGNob3Jkc3x0YWJ8
+          dGFic3xvZmZpY2lhbHxhY291c3RpY3xsaXZlfHJlbWFzdGVyZWQpXGInLCAnJywgdGV4dCkK
+          ICAgIHJldHVybiB0ZXh0LnN0cmlwKCkKCgpkZWYgZXh0cmFjdF9zb25nc19mcm9tX25vZGUo
+          bm9kZSk6CiAgICBzb25ncyA9IFtdCiAgICBkZWYgcmVjdXJzZShvYmopOgogICAgICAgIGlm
+          IGluc3RhbmNlKG9iaiwgZGljdCk6CiAgICAgICAgICAgIHNfbmFtZSA9IG9iai5nZXQoInNv
+          bmdfbmFtZSIpIG9yIG9iai5nZXQoInNvbmdfdGl0bGUiKSBvciBvYmouZ2V0KCJ0aXRsZSIp
+          CiAgICAgICAgICAgIGFfbmFtZSA9IG9iai5nZXQoImFydGlzdF9uYW1lIikgb3Igb2JqLmdl
+          dCgiYXJ0aXN0IikKICAgICAgICAgICAgaWYgc19uYW1lIGFuZCBhX25hbWUgYW5kIGluc3Rh
+          bmNlKHNfbmFtZSwgc3RyKSBhbmQgaW5zdGFuY2UoYV9uYW1lLCBzdHIpOgogICAgICAgICAg
+          ICAgICAgaWYgbm90ICgicGxheWxpc3QiIGluIHNfbmFtZS5sb3dlcigpIGFuZCAidWx0aW1h
+          dGUiIGluIGFfbmFtZS5sb3dlcigpKToKICAgICAgICAgICAgICAgICAgICBzb25ncy5hcHBl
+          bmQoeyJzb25nTmFtZSI6IHNfbmFtZS5zdHJpcCgpLCAiYXJ0aXN0TmFtZSI6IGFfbmFtZS5z
+          dHJpcCgpfSkKICAgICAgICAgICAgICAgICAgICByZXR1cm4KICAgICAgICAgICAgZm9yIGss
+          IHYgaW4gb2JqLml0ZW1zKCk6CiAgICAgICAgICAgICAgICByZWN1cnNlKHYpCiAgICAgICAg
+          ZWxpZiBpbnN0YW5jZShvYmosIGxpc3QpOgogICAgICAgICAgICBmb3IgaXRlbSBpbiBvYmo6
+          CiAgICAgICAgICAgICAgICByZWN1cnNlKGl0ZW0pCiAgICByZWN1cnNlKG5vZGUpCiAgICBz
+          ZWVuID0gc2V0KCkKICAgIGRlZHVwZWQgPSBbXQogICAgZm9yIHMgaW4gc29uZ3M6CiAgICAg
+          ICAga2V5ID0gZiJ7c1snc29uZ05hbWUnXS5sb3dlcigpfV9fX3tzWydhcnRpc3ROYW1lJ10u
+          bG93ZXIoKX0iCiAgICAgICAgaWYga2V5IG5vdCBpbiBzZWVuOgogICAgICAgICAgICBzZWVu
+          LmFkZChrZXkpCiAgICAgICAgICAgIGRlZHVwZWQuYXBwZW5kKHMpCiAgICByZXR1cm4gZGVk
+          dXBlZAoKCgpkZWYgbWFpbigpOgogICAgaWYgbm90IG9zLnBhdGguZXhpc3RzKCJjb25maWcu
+          anNvbiIpOgogICAgICAgIHByaW50KCJFcnJvcjogY29uZmlnLmpzb24gbWlzc2luZyBpbiBy
+          b290IGRpcmVjdG9yeS4iKQogICAgICAgIHJldHVybgoKICAgIHdpdGggb3BlbigiY29uZmln
+          Lmpzb24iLCAiciIsIGVuY29kaW5nPSJ1dGYtOCIpIGFzIGY6CiAgICAgICAgY29uZmlnID0g
+          anNvbi5sb2FkKGYpCgogICAgdWdfdXJsID0gY29uZmlnLmdldCgidWdfcGxheWxpc3RfbGlu
+          ayIpIG9yIGNvbmZpZy5nZXQoInVnX2xpbmsiKQogICAgZ2FzX3VybCA9IG9zLmVudmlyb24u
+          Z2V0KCJHT09HTEVfU0NSSVBUX1VSTCIpIG9yIGNvbmZpZy5nZXQoImdvb2dsZV9zaGVldHNf
+          YXBpX3VybCIpCgogICAgaWYgbm90IHVnX3VybCBvciBub3QgZ2FzX3VybDoKICAgICAgICBw
+          cmludCgiRXJyb3I6IE1pc3NpbmcgVUcgbGluayBvciBBcHBzIFNjcmlwdCBVUkwgaW4gY29u
+          ZmlnLmpzb24uIikKICAgICAgICByZXR1cm4KCiAgICBwcmludChmIlNjcmFwaW5nIFVHIHZp
+          YSBQbGF5d3JpZ2h0IENocm9taXVtOiB7dWdfdXJsfSIpCiAgICBzY3JhcGVkX3NvbmdzID0g
+          W10KCiAgICB0cnk6CiAgICAgICAgd2l0aCBzeW5jX3BsYXl3cmlnaHQoKSBhcyBwOgogICAg
+          ICAgICAgICBicm93c2VyID0gcC5jaHJvbWl1bS5sYXVuY2goaGVhZGxlc3M9VHJ1ZSkKICAg
+          ICAgICAgICAgcGFnZSA9IGJyb3dzZXIubmV3X3BhZ2UodXNlcl9hZ2VudD0iTW96aWxsYS81
+          LjAgKFdpbmRvd3MgTlQgMTAuMDsgV2luNjQ7IHg2NCkgQXBwbGVXZWJLaXQvNTM3LjM2IChL
+          SFRNTCwgbGlrZSBHZWNrbykgQ2hyb21lLzEyNi4wLjAuMCBTYWZhcmkvNTM3LjM2IikKICAg
+          ICAgICAgICAgcGFnZS5nb3RvKHVnX3VybCwgd2FpdF91bnRpbD0iZG9tY29udGVudGxvYWRl
+          ZCIsIHRpbWVvdXQ9MzUwMDApCiAgICAgICAgICAgIHBhZ2Uud2FpdF9mb3JfdGltZW91dCg1
+          MDAwKQoKICAgICAgICAgICAgc3RvcmVfZGF0YSA9IHBhZ2UuZXZhbHVhdGUoIigpID0+IHdp
+          bmRvdy5VR0FQUA8uc3RvcmU/LnBhZ2UgfHwgbnVsbCIpCiAgICAgICAgICAgIGlmIHN0b3Jl
+          X2RhdGE6CiAgICAgICAgICAgICAgICBzY3JhcGVkX3NvbmdzID0gZXh0cmFjdF9zb25nc19m
+          cm9tX25vZGUoc3RvcmVfZGF0YSkKCiAgICAgICAgICAgIGlmIG5vdCBzY3JhcGVkX3Nvbmdz
+          OgogICAgICAgICAgICAgICAgbGlua3MgPSBwYWdlLnF1ZXJ5X3NlbGVjdG9yX2FsbCgiYVto
+          cmVmKj0nL3RhYi8nXSIpCiAgICAgICAgICAgICAgICBmb3IgbGluayBpbiBsaW5rczoKICAg
+          ICAgICAgICAgICAgICAgICB0ZXh0ID0gbGluay5pbm5lcl90ZXh0KCkuc3RyaXAoKQogICAg
+          ICAgICAgICAgICAgICAgIGlmIHRleHQgYW5kICItIiBpbiB0ZXh0OgogICAgICAgICAgICAg
+          ICAgICAgICAgICBwYXJ0cyA9IHRleHQuc3BsaXQoIi0iKQogICAgICAgICAgICAgICAgICAg
+          ICAgICAgc2NyYXBlZF9zb25ncy5hcHBlbmQoeyJzb25nTmFtZSI6IHBhcnRzWzBdLnN0cmlw
+          KCksICJhcnRpc3ROYW1lIjogcGFydHNbMV0uc3RyaXAoKX0pCiAgICAgICAgICAgIGJyb3dz
+          ZXIuY2xvc2UoKQogICAgZXhjZXB0IEV4Y2VwdGlvbiBhcyBlOgogICAgICAgIHByaW50KGYi
+          U2NyYXBpbmcgZXJyb3I6I3tlfSIpCgogICAgaWYgbm90IHNjcmFwZWRfc29uZ3MgYW5kIG9z
+          LnBhdGguZXhpc3RzKCJwbGF5bGlzdC5qc29uIik6CiAgICAgICAgd2l0aCBvcGVuKCJwbGF5
+          bGlzdC5qc29uIiwgInIiLCBlbmNvZGluZz0idXRmLTgiKSBhcyBmOgogICAgICAgICAgICBz
+          Y3JhcGVkX3NvbmdzID0ganNvbi5sb2FkKGYpCgogICAgcHJpbnQoZiJTY3JhcGVkIHtsZW4o
+          c2NyYXBlZF9zb25ncyl9IHNvbmdzIGZyb20gVUcuIikKICAgIGlmIGxlbihzY3JhcGVkX3Nv
+          bmdzKSA9PSAwOgogICAgICAgIHByaW50KCJBYm9ydGluZyBHb29nbGUgU2hlZXRzIHN5bmMg
+          dG8gcHJldmVudCBjbGVhcmluZyBzcHJlYWRzaGVldC4iKQogICAgICAgIHJldHVybgoKICAg
+          IHRyeToKICAgICAgICByZXF1ZXN0cy5wb3N0KGdhc191cmwsIGpzb249eyJhY3Rpb24iOiAi
+          c3luY1NjcmFwZWRQbGF5bGlzdCIsICJwYXlsb2FkIjogeyJzb25ncyI6IHNjcmlwZWRfc29u
+          Z3N9fSwgdGltZW91dD0yMCkKICAgIGV4Y2VwdCBFeGNlcHRpb24gYXMgZToKICAgICAgICBw
+          cmludChmIkVycm9yIHN5bmNpbmcgR29vZ2xlIFNoZWV0czoge2V9IikKCiAgICB1cGRhdGVk
+          X3BsYXlsaXN0ID0gW10KICAgIHRyeToKICAgICAgICByZXMgPSByZXF1ZXN0cy5nZXQoZiJ7
+          Z2FzX3VybH0/YWN0aW9uPXJlYWRUYWImdGFiPXNvbmctaW5mbyIsIHRpbWVvdXQ9MTUpCiAg
+          ICAgICAganNvbl9kYXRhID0gcmVzLmpzb24oKQogICAgICAgIGlmIGpzb25fZGF0YS5nZXQo
+          InN0YXR1cyIpID09ICJzdWNjZXNzIjoKICAgICAgICAgICAgZm9yIGlkeCwgcm93IGluIGVu
+          dW1lcmF0ZShqc29uX2RhdGEuZ2V0KCJkYXRhIiwgW10pKToKICAgICAgICAgICAgICAgIHVw
+          ZGF0ZWRfcGxheWxpc3QuYXBwZW5kKHsKICAgICAgICAgICAgICAgICAgICAiaW5kZXgiOiBy
+          b3cuZ2V0KCJJbmRleCIsIGlkeCArIDEpLAogICAgICAgICAgICAgICAgICAgICJzb25nTmFt
+          ZSI6IHJvdy5nZXQoIlNvbmcgTmFtZSIsICIiKSwKICAgICAgICAgICAgICAgICAgICAiYXJ0
+          aXN0TmFtZSI6IHJvdy5nZXQoIkFydGlzdCBOYW1lIiwgIiIpLAogICAgICAgICAgICAgICAg
+          ICAgICJrZXkiOiByb3cuZ2V0KCJLZXkiLCAiIikKICAgICAgICAgICAgICAgIH0pCiAgICBl
+          eGNlcHQgRXhjZXB0aW9uOgogICAgICAgIHVwZGF0ZWRfcGxheWxpc3QgPSBzY3JhcGVkX3Nv
+          bmdzCgogICAgd2l0aCBvcGVuKCJwbGF5bGlzdC5qc29uIiwgInciLCBlbmNvZGluZz0idXRm
+          LTgiKSBhcyBmOgogICAgICAgIGpzb24uZHVtcCh1cGRhdGVkX3BsYXlsaXN0LCBmLCBpbmRl
+          bnQ9MiwgZW5zdXJlX2FzY2lpPUZhbHNlKQoKICAgIG9zLm1ha2VkaXJzKCJzb25ncyIsIGV4
+          aXN0X29rPVRydWUpCiAgICBmb3IgaWR4LCB0cmFjayBpbiBlbnVtZXJhdGUodXBkYXRlZF9w
+          bGF5bGlzdCwgc3RhcnQ9MSk6CiAgICAgICAgcmF3X3RpdGxlID0gdHJhY2suZ2V0KCJzb25n
+          TmFtZSIsICIiKS5zdHJpcCgpCiAgICAgICAgcmF3X2FydGlzdCA9IHRyYWNrLmdldCgiYXJ0
+          aXN0TmFtZSIsICIiKS5zdHJpcCgpCiAgICAgICBpaWYgbm90IHJhd190aXRsZSBvciBub3Qg
+          cmF3X2FydGlzdDogY29udGludWUKCiAgICAgICAgY190aXRsZSA9IGNsZWFuX3RpdGxlKHJh
+          d190aXRsZSkKICAgICAgICBjX2FydGlzdCA9IGNsZWFuX3RpdGxlKHJhd19hcnRpc3QpCgog
+          ICAgICAgIHNhZmVfc29uZyA9IHJlLnN1YihyJy0rJywgJy0nLCByZS5zdWIocidbXmEtekEt
+          WjAtOV0nLCAnLScsIHJhd190aXRsZS5sb3dlcigpKSkuc3RyaXAoJy0nKQogICAgICAgIHNh
+          ZmVfYXJ0aXN0ID0gcmUuc3ViKHInLSsnLCAnLScsIHJlLnN1YihyJ1teYS16QS1aMC05XScs
+          ICctJywgcmF3X2FydGlzdC5sb3dlcigpKSkuc3RyaXAoJy0nKQogICAgICAgIGZpbGVfcGF0
+          aCA9IG9zLnBhdGguam9pbigic29uZ3MiLCBmIntpZHh9LXtzYWZlX3Nvbmd9LXtzYWZlX2Fy
+          dGlzdH0udHh0IikKCiAgICAgICAgaWYgb3MucGF0aC5leGlzdHMoZmlsZV9wYXRoKTogY29u
+          dGludWUKCiAgICAgICAgcHJpbnQoZiJGZXRjaGluZyBseXJpY3MgW3tpZHh9XToge2NfdGl0
+          bGV9IC0ge2NfYXJ0aXN0fSIpCiAgICAgICAgbHlyaWNzX3RleHQgPSAiIgogICAgICAgIHRy
+          eToKICAgICAgICAgICAgcV91cmwgPSBmImh0dHBzOi8vbHJjbGliLm5ldC9hcGkvZ2V0P2Fy
+          dGlzdF9uYW1lPXt1cmxsaWIucGFyc2UucXVvdGUoY19hcnRpc3QpfSZ0cmFja19uYW1lPXt1
+          cmxsaWIucGFyc2UucXVvdGUoY190aXRsZSl9IgogICAgICAgICAgICByID0gcmVxdWVzdHMu
+          Z2V0KHFfdXJsLCB0aW1lb3V0PTEwKQogICAgICAgICAgICBpZiByLnN0YXR1c19jb2RlID09
+          IDIwMDoKICAgICAgICAgICAgICAgIGx5cmljc190ZXh0ID0gci5qc29uKCkuZ2V0KCJwbGFp
+          bkx5cmljcyIpIG9yIHIuanNvbigpLmdldCgic3luY2VkTHlyaWNzIikgb3IgIiIKICAgICAg
+          ICBleGNlcHQgRXhjZXB0aW9uOiBwYXNzCgogICAgICAgIGlmIG5vdCBseXJpY3NfdGV4dDoK
+          ICAgICAgICAgICAgdHJ5OgogICAgICAgICAgICAgICAgc191cmwgPSBmImh0dHBzOi8vbHJj
+          bGliLm5ldC9hcGkvc2VhcmNoP3E9e3VybGxpYi5wYXJzZS5xdW90ZShjX3RpdGxlICsgJyAn
+          ICsgY19hcnRpc3QpfSIKICAgICAgICAgICAgICAgIHNyID0gcmVxdWVzdHMuZ2V0KHNfdXJs
+          LCB0aW1lb3V0PTEwKQogICAgICAgICAgICAgICAgaWYgc3Iuc3RhdHVzX2NvZGUgPT0gMjAw
+          IGFuZCBsZW4oc3IuanNvbigpKSA+IDA6CiAgICAgICAgICAgICAgICAgICAgbHlyaWNzX3Rl
+          eHQgPSBzci5qc29uKClbMF0uZ2V0KCJwbGFpbkx5cmljcyIpIG9yIHNyLmpzb24oKVswXS5n
+          ZXQoInN5bmNlZEx5cmljcyIpIG9yICIiCiAgICAgICAgICAgIGV4Y2VwdCBFeGNlcHRpb246
+          IHBhc3MKCiAgICAgICAgaWYgbm90IGx5cmljc190ZXh0OgogICAgICAgICAgICBseXJpY3Nf
+          dGV4dCA9IGYiTHlyaWNzIGZvciAne3Jhd190aXRsZX0nIGJ5ICd7cmF3X2FydGlzdH0nIGNv
+          dWxkIG5vdCBiZSBsb2NhdGVkLiIKCiAgICAgICAgd2l0aCBvcGVuKGZpbGVfcGF0aCwgInci
+          LCBlbmNvZGluZz0idXRmLTgiKSBhcyBsZjoKICAgICAgICAgICAgbGYud3JpdGUoZiJUaXRs
+          ZToge3Jhd190aXRsZX1cbkFydGlzdDoge3Jhd19hcnRpc3R9XG5cbiIgKyBseXJpY3NfdGV4
+          dCkKICAgICAgICB0aW1lLnNsZWVwKDAuNCkKCmlmIF9fbmFtZV9fID09ICJfX21haW5fXyI6
+          CiAgICBtYWluKCkK
           '''
+          decoded = base64.b64decode(''.join(b64_code.split())).decode('utf-8')
           with open('scraper.py', 'w', encoding='utf-8') as f:
-              f.write(code)
-          print('[Workflow] Successfully generated native scraper.py')
+              f.write(decoded)
+          print('[Workflow] Successfully written pristine scraper.py')
           "
 
       - name: Unpack Web Frontend Payload Files
@@ -209,7 +170,7 @@ jobs:
 
           raw_text = os.environ.get("RAW_INPUT", "").strip()
           if not raw_text:
-              print("[Workflow] Frontend payload empty; skipping web file updates.")
+              print("[Workflow] Frontend payload input was empty; skipping web file updates.")
               exit(0)
 
           pattern = r"===\s*FILE:\s*([^\s=]+(?:\/[^\s=]+)*)\s*==="
@@ -219,12 +180,14 @@ jobs:
               for i in range(1, len(tokens), 2):
                   filepath = tokens[i].strip()
                   content = tokens[i+1]
-                  if filepath == "scraper.py": continue # Protected python file
+                  if filepath == "scraper.py":
+                      continue  # Protect scraper.py from being overwritten by form flattening
                   dirpath = os.path.dirname(filepath)
-                  if dirpath: os.makedirs(dirpath, exist_ok=True)
+                  if dirpath:
+                      os.makedirs(dirpath, exist_ok=True)
                   with open(filepath, "w", encoding="utf-8", newline="\n") as f:
                       f.write(content.strip() + "\n")
-                  print(f"[Engine] Wrote web asset: {filepath}")
+                  print(f"[Engine] Written web asset: {filepath}")
           PYEOF
 
       - name: Execute Automated Scraper
