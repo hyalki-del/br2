@@ -3,8 +3,8 @@ name: Universal Payload Execution Engine
 on:
   workflow_dispatch:
     inputs:
-      code_payload:
-        description: 'Paste your complete multi-file text payload here'
+      base64_payload:
+        description: 'Paste your Base64 encoded payload here'
         required: true
         type: string
 
@@ -14,7 +14,7 @@ permissions:
 jobs:
   execute_payload:
     runs-on: ubuntu-latest
-    name: Unpack Files and Execute Pipeline
+    name: Execute Unpacked Base64 Payload
 
     steps:
       - name: Checkout Repository
@@ -28,33 +28,33 @@ jobs:
         with:
           python-version: '3.11'
 
-      - name: Install Dependencies & Playwright Chromium
+      - name: Install System Dependencies & Playwright
         run: |
           mkdir -p core .github/workflows songs
           python -m pip install --upgrade pip
           pip install requests beautifulsoup4 playwright
           playwright install chromium --with-deps
 
-      - name: Unpack Raw Payload Files
+      - name: Decode Base64 and Unpack Files
         env:
-          RAW_PAYLOAD: ${{ inputs.code_payload }}
+          B64_INPUT: ${{ inputs.base64_payload }}
         run: |
           python3 - << 'PYEOF'
-          import os, re
+          import os, base64, re
 
-          raw_input = os.environ.get("RAW_PAYLOAD", "")
-          if not raw_input.strip():
-              raise ValueError("Payload input was empty.")
+          b64_str = os.environ.get("B64_INPUT", "").strip()
+          if not b64_str:
+              raise ValueError("Input Base64 string was empty.")
 
-          # Standardize literal newlines and escaped newlines from UI forms
-          formatted_text = raw_input.replace('\\n', '\n').replace('\r\n', '\n')
+          # Decode bytes and restore UTF-8 string
+          decoded_text = base64.b64decode(b64_str).decode("utf-8")
 
-          # Parse blocks using marker delimiter: === FILE: filename ===
+          # Tokenize using delimiter === FILE: filename ===
           pattern = r"===\s*FILE:\s*([^\s=]+(?:\/[^\s=]+)*)\s*==="
-          tokens = re.split(pattern, formatted_text)
+          tokens = re.split(pattern, decoded_text)
 
           if len(tokens) < 3:
-              raise ValueError("No valid '=== FILE: filepath ===' sections detected in payload.")
+              raise ValueError("No valid '=== FILE: filepath ===' sections found in payload.")
 
           files_written = 0
           for i in range(1, len(tokens), 2):
@@ -71,13 +71,13 @@ jobs:
               with open(filepath, "w", encoding="utf-8", newline="\n") as f:
                   f.write(content.strip() + "\n")
 
-              print(f"[Engine] Successfully written: {filepath}")
+              print(f"[Engine] Written: {filepath}")
               files_written += 1
 
           print(f"[Engine] Unpacking complete. Total files processed: {files_written}")
           PYEOF
 
-      - name: Execute Scraper Engine
+      - name: Execute Automated Scraper Engine
         env:
           GOOGLE_SCRIPT_URL: ${{ secrets.GOOGLE_SCRIPT_URL }}
         run: |
@@ -85,15 +85,15 @@ jobs:
             python3 scraper.py
           fi
 
-      - name: Commit and Push All Changes
+      - name: Commit and Push Changes
         run: |
           git config --global user.name 'github-actions[bot]'
           git config --global user.email 'github-actions[bot]@users.noreply.github.com'
           git add -A
           
           if git diff --staged --quiet; then
-            echo "No repository changes detected after payload execution."
+            echo "No changes detected."
           else
-            git commit -m "build(payload): automated universal repository sync"
+            git commit -m "build(payload): executed base64 payload update"
             git push
           fi
