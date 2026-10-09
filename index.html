@@ -1,144 +1,418 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="tr">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Band Dashboard</title>
-    <link href="https://fonts.googleapis.com/css2?family=Oswald:wght@500;700&display=swap" rel="stylesheet">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>A Harmonic Minor Etude - Akor, Tab & Teori Paneli</title>
     <style>
-        * { box-sizing: border-box; margin: 0; padding: 0; transition: background-color 0.3s, color 0.3s, border-color 0.3s; }
-        body { background-color: var(--bg-primary, #000000); color: var(--text-main, #ffffff); font-family: var(--font-family, sans-serif); min-height: 100vh; padding: 90px 20px 40px 20px; display: flex; flex-direction: column; align-items: center; justify-content: center; position: relative; overflow-x: hidden; -webkit-font-smoothing: antialiased; }
-        
-        /* Authentic Dot-Matrix LED Banner (Theme-Reactive via var(--accent-color)) */
-        .retro-led-banner { position: fixed; top: 0; left: 0; width: 100vw; height: 55px; background-color: #000000; z-index: 1000; border-bottom: 3px solid #111; box-shadow: 0 4px 20px rgba(0,0,0,0.9); display: flex; align-items: center; overflow: hidden; }
-        .retro-led-track { display: flex; white-space: nowrap; animation: retroScroll 20s linear infinite; will-change: transform; }
-        .retro-led-text { font-family: 'Courier New', Courier, monospace; font-size: 1.5rem; font-weight: 900; letter-spacing: 6px; color: var(--accent-color, #0071e3); text-transform: uppercase; padding-right: 80px; background-image: radial-gradient(var(--accent-color, #0071e3) 65%, transparent 35%); background-size: 6px 6px; -webkit-background-clip: text; -webkit-text-fill-color: transparent; text-shadow: 0 0 8px var(--accent-color, #0071e3); filter: drop-shadow(0 0 2px var(--accent-color)); }
-        @keyframes retroScroll { 0% { transform: translateX(0); } 100% { transform: translateX(-50%); } }
-        
-        /* Background Slider & 65% Black Dotted Opacity Overlay */
-        .bg-slider { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; z-index: -2; background-size: cover; background-position: center; background-repeat: no-repeat; transition: opacity 0.8s ease-in-out; opacity: 0; }
-        .bg-slider.active { opacity: 0.65; }
-        .bg-dotted-overlay { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; z-index: -1; background-image: radial-gradient(rgba(0, 0, 0, 0.85) 1.5px, transparent 1.5px); background-size: 8px 8px; background-color: rgba(0, 0, 0, 0.65); pointer-events: none; }
-        
-        .container { width: 100%; max-width: 900px; z-index: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; }
-        
-        /* Navigation Grid Only */
-        .nav-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 20px; width: 100%; }
-        .nav-card { background-color: var(--bg-surface, rgba(20, 20, 25, 0.75)); backdrop-filter: blur(12px); border: 1px solid var(--border-color, rgba(255,255,255,0.12)); border-radius: var(--card-radius, 12px); padding: 28px 24px; text-decoration: none; color: var(--text-main, #ffffff); box-shadow: 0 8px 32px rgba(0,0,0,0.4); transition: transform 0.2s ease, border-color 0.2s ease, background-color 0.2s ease; display: flex; align-items: center; gap: 20px; min-height: 100px; }
-        .nav-card:hover { transform: translateY(-4px); border-color: var(--accent-color, #0071e3); background-color: rgba(30, 30, 40, 0.85); }
-        .nav-icon { font-size: 2.4rem; padding: 12px; background: rgba(255,255,255,0.06); border-radius: 12px; display: flex; align-items: center; justify-content: center; }
-        .nav-content { display: flex; flex-direction: column; justify-content: center; }
-        .nav-title { font-size: 1.25rem; font-weight: 700; text-transform: var(--header-transform, none); margin-bottom: 4px; }
-        .nav-desc { font-size: 0.85rem; color: var(--text-muted, #a0a0a5); line-height: 1.4; }
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #121212;
+            color: #e0e0e0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 30px 20px;
+            margin: 0;
+        }
+
+        h1 {
+            color: #ffffff;
+            margin-bottom: 5px;
+            font-size: 1.8rem;
+        }
+
+        .subtitle {
+            color: #a0a0a0;
+            margin-bottom: 25px;
+            font-size: 0.95rem;
+        }
+
+        .main-layout {
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+            width: 100%;
+            max-width: 900px;
+        }
+
+        .container {
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+        }
+
+        .measure-card {
+            background-color: #1e1e1e;
+            border-left: 5px solid #00adb5;
+            border-radius: 8px;
+            padding: 16px 20px;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.3);
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+
+        .measure-title {
+            font-weight: 600;
+            color: #00adb5;
+            font-size: 1.1rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .pedal-tag {
+            background-color: #333;
+            color: #ff2e63;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-size: 0.85rem;
+            font-weight: normal;
+        }
+
+        .button-group {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+
+        button {
+            background-color: #2a2a2a;
+            color: #ffffff;
+            border: 1px solid #3d3d3d;
+            padding: 10px 18px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 0.95rem;
+            font-weight: 500;
+            transition: all 0.2s ease;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        button:hover {
+            background-color: #00adb5;
+            color: #121212;
+            border-color: #00adb5;
+            transform: translateY(-2px);
+        }
+
+        button.active {
+            background-color: #ff2e63 !important;
+            border-color: #ff2e63 !important;
+            color: #ffffff !important;
+        }
+
+        /* Interactive Display Grid */
+        .info-panel {
+            background-color: #181818;
+            border: 1px solid #00adb5;
+            border-radius: 8px;
+            padding: 20px;
+            box-shadow: 0 4px 15px rgba(0, 173, 181, 0.15);
+            position: sticky;
+            bottom: 20px;
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+        }
+
+        @media (max-width: 650px) {
+            .info-panel {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .panel-block {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .panel-header {
+            color: #00adb5;
+            font-size: 1.05rem;
+            font-weight: bold;
+            margin-bottom: 10px;
+            border-bottom: 1px solid #333;
+            padding-bottom: 6px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        pre {
+            font-family: 'Courier New', Courier, monospace;
+            background-color: #0d0d0d;
+            color: #00fff5;
+            padding: 12px;
+            border-radius: 6px;
+            font-size: 0.95rem;
+            line-height: 1.3;
+            margin: 0;
+            overflow-x: auto;
+            font-weight: bold;
+        }
+
+        .theory-content {
+            background-color: #0d0d0d;
+            border-radius: 6px;
+            padding: 12px;
+            font-size: 0.9rem;
+            line-height: 1.5;
+            flex-grow: 1;
+        }
+
+        .note-badge {
+            background-color: #ff2e63;
+            color: white;
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-weight: bold;
+            display: inline-block;
+            margin-right: 4px;
+            margin-bottom: 6px;
+        }
+
+        .formula-text {
+            color: #ffb400;
+            font-weight: bold;
+        }
     </style>
 </head>
 <body>
-    <!-- Authentic Retro Single-Line Sliding LED Dot-Matrix Banner (Dotted Font Raster & Dynamic Theme Color) -->
-    <div class="retro-led-banner">
-        <div class="retro-led-track">
-            <span class="retro-led-text">&bull; &bull; &bull; LIVE STAGE SYSTEM ONLINE &bull; SETLIST SYNC ACTIVE &bull; READY FOR PERFORMANCE &bull; &bull; &bull;</span>
-            <span class="retro-led-text">&bull; &bull; &bull; LIVE STAGE SYSTEM ONLINE &bull; SETLIST SYNC ACTIVE &bull; READY FOR PERFORMANCE &bull; &bull; &bull;</span>
+
+    <h1>A Harmonic Minor Etude</h1>
+    <div class="subtitle">Ölçülere Göre Akor, Gitar Tab & Teori Dinleyici</div>
+
+    <div class="main-layout">
+        <div class="container">
+
+            <!-- 1. ve 2. Ölçü -->
+            <div class="measure-card">
+                <div class="measure-title">
+                    1. ve 2. Ölçü
+                    <span class="pedal-tag">Pedal: E</span>
+                </div>
+                <div class="button-group">
+                    <button onclick="selectChord('Am', [220, 261.63, 329.63], this)">🎵 Am</button>
+                    <button onclick="selectChord('Am/E', [164.81, 220, 261.63, 329.63], this)">🎵 Am/E</button>
+                </div>
+            </div>
+
+            <!-- 3. ve 4. Ölçü -->
+            <div class="measure-card">
+                <div class="measure-title">
+                    3. ve 4. Ölçü
+                    <span class="pedal-tag">Pedal: F</span>
+                </div>
+                <div class="button-group">
+                    <button onclick="selectChord('F', [174.61, 261.63, 349.23], this)">🎵 F</button>
+                    <button onclick="selectChord('Dm/F', [174.61, 220, 293.66, 349.23], this)">🎵 Dm/F</button>
+                </div>
+            </div>
+
+            <!-- 5. ve 6. Ölçü -->
+            <div class="measure-card">
+                <div class="measure-title">
+                    5. ve 6. Ölçü
+                    <span class="pedal-tag">Pedal: F#</span>
+                </div>
+                <div class="button-group">
+                    <button onclick="selectChord('D/F#', [185.00, 293.66, 369.99], this)">🎵 D/F#</button>
+                    <button onclick="selectChord('D7/F#', [185.00, 261.63, 293.66, 369.99], this)">🎵 D7/F#</button>
+                    <button onclick="selectChord('F#dim', [185.00, 220.00, 261.63, 311.13], this)">🎵 F#dim</button>
+                </div>
+            </div>
+
+            <!-- 7. Ölçü -->
+            <div class="measure-card">
+                <div class="measure-title">
+                    7. Ölçü
+                    <span class="pedal-tag">Pedal: G</span>
+                </div>
+                <div class="button-group">
+                    <button onclick="selectChord('C/G', [196.00, 261.63, 329.63, 392.00], this)">🎵 C/G</button>
+                    <button onclick="selectChord('Em/G', [196.00, 246.94, 329.63, 392.00], this)">🎵 Em/G</button>
+                    <button onclick="selectChord('G6', [196.00, 246.94, 293.66, 329.63], this)">🎵 G6</button>
+                </div>
+            </div>
+
+            <!-- 8. Ölçü -->
+            <div class="measure-card">
+                <div class="measure-title">
+                    8. Ölçü
+                    <span class="pedal-tag">Pedal: G#</span>
+                </div>
+                <div class="button-group">
+                    <button onclick="selectChord('E7/G#', [207.65, 246.94, 293.66, 329.63], this)">🎵 E7/G#</button>
+                    <button onclick="selectChord('G#dim7', [207.65, 246.94, 293.66, 349.23], this)">🎵 G#dim7</button>
+                </div>
+            </div>
+
         </div>
-    </div>
 
-    <!-- Background Elements for Shuffling Photos & Dotted Overlay -->
-    <div id="bgContainer"></div>
-    <div class="bg-dotted-overlay"></div>
-
-    <div class="container">
-        <div class="nav-grid">
-            <a href="playlist.html" class="nav-card">
-                <div class="nav-icon">🎵</div>
-                <div class="nav-content">
-                    <div class="nav-title">Playlist & Setlist</div>
-                    <div class="nav-desc">Manage order, key signatures, and offline lyric viewers.</div>
-                </div>
-            </a>
-            <a href="setup.html" class="nav-card">
-                <div class="nav-icon">🎨</div>
-                <div class="nav-content">
-                    <div class="nav-title">Theme Setup</div>
-                    <div class="nav-desc">Switch design tokens: Hero, Base, or Rams.</div>
-                </div>
-            </a>
-            <a href="admin.html" class="nav-card">
-                <div class="nav-icon">⚙️</div>
-                <div class="nav-content">
-                    <div class="nav-title">Admin Panel</div>
-                    <div class="nav-desc">Generate configuration and upload photos.</div>
-                </div>
-            </a>
-            <a href="takvim.html" class="nav-card">
-                <div class="nav-icon">📅</div>
-                <div class="nav-content">
-                    <div class="nav-title">Calendar</div>
-                    <div class="nav-desc">Upcoming gig schedules and rehearsals.</div>
-                </div>
-            </a>
-            <a href="rehearsal.html" class="nav-card">
-                <div class="nav-icon">🎸</div>
-                <div class="nav-content">
-                    <div class="nav-title">Rehearsal</div>
-                    <div class="nav-desc">Practice logs and arrangement notes.</div>
-                </div>
-            </a>
-            <a href="advisor.html" class="nav-card">
-                <div class="nav-icon">🧠</div>
-                <div class="nav-content">
-                    <div class="nav-title">Advisor</div>
-                    <div class="nav-desc">Setlist balance analytics and pacing.</div>
-                </div>
-            </a>
-        </div>
-    </div>
-
-    <script src="core/app.js"></script>
-    <script>
-        document.addEventListener("DOMContentLoaded", async () => {
-            let photos = [];
+        <!-- Info Panel (Tab + Theory Side-by-Side) -->
+        <div class="info-panel">
             
-            setTimeout(async () => {
-                if (window.BandApp && window.BandApp.config) {
-                    const conf = window.BandApp.config;
-                    if (conf.band_photos && Array.isArray(conf.band_photos) && conf.band_photos.length > 0) {
-                        photos = conf.band_photos;
-                    }
-                }
-                
-                if (photos.length === 0) {
-                    photos = ["img/hero-bg1.jpg", "img/hero-bg2.jpg"]; 
-                }
-                
-                setupBackgroundSlider(photos);
-            }, 150);
-        });
+            <!-- Left: Tab Box -->
+            <div class="panel-block">
+                <div class="panel-header">
+                    <span id="chord-name">Bir Akor Seçin</span>
+                    <span style="font-size:0.8rem; color:#aaa;">Gitar Tab</span>
+                </div>
+                <pre id="tab-display">e|---|
+B|---|
+G|---|
+D|---|
+A|---|
+E|---|
+(Butona tıklayın)</pre>
+            </div>
 
-        function setupBackgroundSlider(photos) {
-            const container = document.getElementById("bgContainer");
-            if (!container) return;
-            container.innerHTML = "";
+            <!-- Right: Theory / Notes Box -->
+            <div class="panel-block">
+                <div class="panel-header">
+                    <span>Akor Yapısı & Notalar</span>
+                    <span style="font-size:0.8rem; color:#aaa;">Armoni</span>
+                </div>
+                <div id="theory-display" class="theory-content">
+                    Bir akorun seslerini ve oluşumunu görmek için listeden bir akor seçin.
+                </div>
+            </div>
 
-            photos.forEach((photoUrl, index) => {
-                const div = document.createElement("div");
-                div.className = "bg-slider" + (index === 0 ? " active" : "");
-                const formattedUrl = photoUrl.startsWith("http") || photoUrl.startsWith("/") ? photoUrl : (photoUrl.startsWith("img/") ? photoUrl : "img/" + photoUrl);
-                div.style.backgroundImage = `url('${formattedUrl}')`;
-                container.appendChild(div);
-            });
+        </div>
+    </div>
 
-            if (photos.length > 1) {
-                let currentIndex = 0;
-                const slides = container.getElementsByClassName("bg-slider");
-                
-                // 2 seconds smooth shutter/shuffle interval
-                setInterval(() => {
-                    if (slides && slides.length > 0) {
-                        slides[currentIndex].classList.remove("active");
-                        currentIndex = (currentIndex + 1) % slides.length;
-                        slides[currentIndex].classList.add("active");
-                    }
-                }, 2000);
+    <script>
+        const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+
+        // Akor Detay Verileri (Tab, Notalar, Formül, Açıklama)
+        const chordDetails = {
+            'Am': {
+                tab: "e|---5---|\nB|---5---|\nG|---5---|\nD|---7---|\nA|---0---|\nE|-------|",
+                notes: ["A", "C", "E"],
+                formula: "1 - b3 - 5 (Kök - Minör 3'lü - Tam 5'li)",
+                desc: "La minör temel üçlüsüdür. A tonunun kök akorudur."
+            },
+            'Am/E': {
+                tab: "e|---0---|\nB|---1---|\nG|---2---|\nD|---2---|\nA|---0---|\nE|---0---|",
+                notes: ["E", "A", "C"],
+                formula: "5 / 1 - b3 (5'li Bas Üzerinde Minör)",
+                desc: "Am akorunun bas sesine Mi (E) notasının çevrilmiş halidir."
+            },
+            'F': {
+                tab: "e|---1---|\nB|---1---|\nG|---2---|\nD|---3---|\nA|---3---|\nE|---1---|",
+                notes: ["F", "A", "C"],
+                formula: "1 - 3 - 5 (Kök - Majör 3'lü - Tam 5'li)",
+                desc: "Fa Majör triad akorudur. La minör dizisinin 6. derecesidir (VI)."
+            },
+            'Dm/F': {
+                tab: "e|---5---|\nB|---6---|\nG|---7---|\nD|---3---|\nA|-------|\nE|-------|",
+                notes: ["F", "A", "D"],
+                formula: "b3 / 1 - 5 (Minör 3'lü Bas Üzerinde)",
+                desc: "Re minör akorunun Fa (F) bası üzerindeki 1. çevrim pozisyonudur."
+            },
+            'D/F#': {
+                tab: "e|---2---|\nB|---3---|\nG|---2---|\nD|---0---|\nA|-------|\nE|---2---|",
+                notes: ["F#", "D", "A"],
+                formula: "3 / 1 - 5 (Majör 3'lü Bas Üzerinde)",
+                desc: "Re Majör akorunun Fa diyez (F#) bası üzerindeki halidir."
+            },
+            'D7/F#': {
+                tab: "e|---2---|\nB|---1---|\nG|---2---|\nD|---0---|\nA|-------|\nE|---2---|",
+                notes: ["F#", "C", "D", "A"],
+                formula: "3 - b7 - 1 - 5 (Dominant 7'li Çevrimi)",
+                desc: "Re Dominant 7'li akorunun F# baslı yürüyüşü."
+            },
+            'F#dim': {
+                tab: "e|---5---|\nB|---7---|\nG|---5---|\nD|---4---|\nA|-------|\nE|-------|",
+                notes: ["F#", "A", "C"],
+                formula: "1 - b3 - b5 (Kök - Minör 3'lü - Eksilmiş 5'li)",
+                desc: "Fa diyez eksilmiş üçlü akorudur. Kromatik geçiş yaratır."
+            },
+            'C/G': {
+                tab: "e|---0---|\nB|---1---|\nG|---0---|\nD|---2---|\nA|---3---|\nE|---3---|",
+                notes: ["G", "C", "E"],
+                formula: "5 / 1 - 3 (5'li Bas Üzerinde Majör)",
+                desc: "Do Majör akorunun Sol (G) bası ile çalınan 2. çevrimidir."
+            },
+            'Em/G': {
+                tab: "e|---0---|\nB|---0---|\nG|---0---|\nD|---2---|\nA|---2---|\nE|---3---|",
+                notes: ["G", "E", "B"],
+                formula: "b3 / 1 - 5 (Minör 3'lü Bas Üzerinde)",
+                desc: "Mi minör akorunun Sol (G) bası üzerindeki pozisyonudur."
+            },
+            'G6': {
+                tab: "e|---7---|\nB|---8---|\nG|---7---|\nD|---5---|\nA|-------|\nE|-------|",
+                notes: ["G", "B", "D", "E"],
+                formula: "1 - 3 - 5 - 6 (Majör Triad + 6'lı Ek)",
+                desc: "Sol Majör akoruna eklenmiş Mi (E) sesi ile oluşan 6'lı akor."
+            },
+            'E7/G#': {
+                tab: "e|---7---|\nB|---9---|\nG|---7---|\nD|---6---|\nA|-------|\nE|-------|",
+                notes: ["G#", "D", "E", "B"],
+                formula: "3 - b7 - 1 - 5 (Dominant 7'li Çevrimi)",
+                desc: "Mi Dominant 7'li akorunun Sol diyez (G#) bası üzerindeki karara gidiş hali."
+            },
+            'G#dim7': {
+                tab: "e|---7---|\nB|---9---|\nG|---7---|\nD|---6---|\nA|-------|\nE|---4---|",
+                notes: ["G#", "B", "D", "F"],
+                formula: "1 - b3 - b5 - bb7 (Tam Eksilmiş 7'li)",
+                desc: "La armonik minörün 7. derecesi üzerindeki eksilmiş kararlı dominant akor."
             }
+        };
+
+        function selectChord(chordKey, frequencies, btn) {
+            // Buton aktiflik sınıfı değiştirme
+            document.querySelectorAll('button').forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+
+            const info = chordDetails[chordKey];
+
+            if (info) {
+                // Tab Ekrani
+                document.getElementById('chord-name').innerText = "Akor: " + chordKey;
+                document.getElementById('tab-display').innerText = info.tab;
+
+                // Teori Ekrani HTML Yapısı
+                const notesHTML = info.notes.map(n => `<span class="note-badge">${n}</span>`).join('');
+                document.getElementById('theory-display').innerHTML = `
+                    <div style="margin-bottom:8px;"><strong>İçindeki Notalar:</strong><br>${notesHTML}</div>
+                    <div style="margin-bottom:8px;"><strong>Aralık Yapısı:</strong><br><span class="formula-text">${info.formula}</span></div>
+                    <div><strong>Açıklama:</strong> ${info.desc}</div>
+                `;
+            }
+
+            // Sesi Çal
+            playChord(frequencies);
+        }
+
+        function playChord(frequencies) {
+            if (audioCtx.state === 'suspended') {
+                audioCtx.resume();
+            }
+
+            const now = audioCtx.currentTime;
+            const duration = 1.8;
+
+            frequencies.forEach(freq => {
+                const osc = audioCtx.createOscillator();
+                const gain = audioCtx.createGain();
+
+                osc.type = 'triangle';
+                osc.frequency.value = freq;
+
+                gain.gain.setValueAtTime(0.12, now);
+                gain.gain.exponentialRampToValueAtTime(0.0001, now + duration);
+
+                osc.connect(gain);
+                gain.connect(audioCtx.destination);
+
+                osc.start(now);
+                osc.stop(now + duration);
+            });
         }
     </script>
 </body>
