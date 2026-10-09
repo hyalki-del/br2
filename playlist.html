@@ -142,7 +142,7 @@
             font-weight: bold;
             cursor: pointer;
             font-size: 0.9rem;
-            transition: transform 0.1s;
+            transition: transform 0.1s, background-color 0.2s;
         }
 
         .play-btn:active {
@@ -374,11 +374,16 @@ E|---|
             { id: "sus4", name: "Sus4" }
         ];
 
+        // Frekans Veritabanı
         const noteFreqs = {
             "C3": 130.81, "C#3": 138.59, "D3": 146.83, "D#3": 155.56, "E3": 164.81, "F3": 174.61, "F#3": 185.00, "G3": 196.00, "G#3": 207.65, "A3": 220.00, "A#3": 233.08, "B3": 246.94,
             "C4": 261.63, "C#4": 277.18, "D4": 293.66, "D#4": 311.13, "E4": 329.63, "F4": 349.23, "F#4": 369.99, "G4": 392.00, "G#4": 415.30, "A4": 440.00, "A#4": 466.16, "B4": 493.88
         };
 
+        // Kök Ses İndeks Haritası (E-baslı ve A-baslı Barre hesaplama için)
+        const rootOffsets = { "C": 3, "C#": 4, "D": 5, "D#": 6, "E": 0, "F": 1, "F#": 2, "G": 3, "G#": 4, "A": 0, "A#": 1, "B": 2 };
+
+        // Özel/Açık Pozisyon Akor Veritabanı
         const chordDatabase = {
             "C_maj": { tab: "e|---0---|\nB|---1---|\nG|---0---|\nD|---2---|\nA|---3---|\nE|-------|", notes: ["C", "E", "G"], freqs: [noteFreqs.C4, noteFreqs.E4, noteFreqs.G4], formula: "1 - 3 - 5", desc: "Do Majör açık pozisyon triad akorudur." },
             "C_m": { tab: "e|---3---|\nB|---4---|\nG|---5---|\nD|---5---|\nA|---3---|\nE|-------|", notes: ["C", "D#", "G"], freqs: [noteFreqs.C4, noteFreqs["D#4"], noteFreqs.G4], formula: "1 - b3 - 5", desc: "Do Minör barre akorudur." },
@@ -390,19 +395,60 @@ E|---|
             "A_m": { tab: "e|---0---|\nB|---1---|\nG|---2---|\nD|---2---|\nA|---0---|\nE|-------|", notes: ["A", "C", "E"], freqs: [noteFreqs.A3, noteFreqs.C4, noteFreqs.E4], formula: "1 - b3 - 5", desc: "La Minör açık akor." },
 
             "E_maj": { tab: "e|---0---|\nB|---0---|\nG|---1---|\nD|---2---|\nA|---2---|\nE|---0---|", notes: ["E", "G#", "B"], freqs: [noteFreqs.E3, noteFreqs["G#3"], noteFreqs.B3], formula: "1 - 3 - 5", desc: "Mi Majör açık akor." },
-            "E_m": { tab: "e|---0---|\nB|---0---|\nG|---0---|\nD|---2---|\nA|---2---|\nE|---0---|", notes: ["E", "G", "B"], freqs: [noteFreqs.E3, noteFreqs.G3, noteFreqs.B3], formula: "1 - b3 - 5", desc: "Mi Minör açık akor." }
+            "E_m": { tab: "e|---0---|\nB|---0---|\nG|---0---|\nD|---2---|\nA|---2---|\nE|---0---|", notes: ["E", "G", "B"], freqs: [noteFreqs.E3, noteFreqs.G3, noteFreqs.B3], formula: "1 - b3 - 5", desc: "Mi Minör açık akor." },
+            
+            "D_maj": { tab: "e|---2---|\nB|---3---|\nG|---2---|\nD|---0---|\nA|-------|\nE|-------|", notes: ["D", "F#", "A"], freqs: [noteFreqs.D4, noteFreqs["F#4"], noteFreqs.A4], formula: "1 - 3 - 5", desc: "Re Majör açık pozisyon akorudur." },
+            "D_m": { tab: "e|---1---|\nB|---3---|\nG|---2---|\nD|---0---|\nA|-------|\nE|-------|", notes: ["D", "F", "A"], freqs: [noteFreqs.D4, noteFreqs.F4, noteFreqs.A4], formula: "1 - b3 - 5", desc: "Re Minör açık pozisyon akorudur." },
+
+            "G_maj": { tab: "e|---3---|\nB|---0---|\nG|---0---|\nD|---0---|\nA|---2---|\nE|---3---|", notes: ["G", "B", "D"], freqs: [noteFreqs.G3, noteFreqs.B3, noteFreqs.D4], formula: "1 - 3 - 5", desc: "Sol Majör açık pozisyon akorudur." },
+            "F_maj": { tab: "e|---1---|\nB|---1---|\nG|---2---|\nD|---3---|\nA|---3---|\nE|---1---|", notes: ["F", "A", "C"], freqs: [noteFreqs.F3, noteFreqs.A3, noteFreqs.C4], formula: "1 - 3 - 5", desc: "Fa Majör barre akorudur." }
         };
 
+        // Otomatik Akor/TAB Hesaplarken Kullanılan Formül Tanımları
+        const typeFormulas = {
+            "maj": { formula: "1 - 3 - 5", desc: "Majör triad yapısı." },
+            "m": { formula: "1 - b3 - 5", desc: "Minör triad yapısı." },
+            "7": { formula: "1 - 3 - 5 - b7", desc: "Dominant 7'li yapısı." },
+            "maj7": { formula: "1 - 3 - 5 - 7", desc: "Majör 7'li yapısı." },
+            "m7": { formula: "1 - b3 - 5 - b7", desc: "Minör 7'li yapısı." },
+            "dim": { formula: "1 - b3 - b5", desc: "Eksilmiş (Diminished) triad yapısı." },
+            "aug": { formula: "1 - 3 - #5", desc: "Artık (Augmented) triad yapısı." },
+            "sus2": { formula: "1 - 2 - 5", desc: "Askıda 2'li (Sus2) yapısı." },
+            "sus4": { formula: "1 - 4 - 5", desc: "Askıda 4'lü (Sus4) yapısı." }
+        };
+
+        // Veritabanında Olmayan Akorlar İçin Akıllı TAB Üreteci (Barre Formülleri)
         function getChordData(root, type) {
             const key = `${root}_${type}`;
             if (chordDatabase[key]) return chordDatabase[key];
 
+            const fret = rootOffsets[root] !== undefined ? rootOffsets[root] : 1;
+            const fInfo = typeFormulas[type] || { formula: type.toUpperCase(), desc: `${root} ${type} akoru.` };
+
+            // A-Teli ve E-Teli Kök Pozisyonuna Göre Otomatik TAB Üretimi
+            let tabStr = "";
+            if (["C", "C#", "D", "D#", "A", "A#", "B"].includes(root)) {
+                // A-Teli Baslı Barre Şablonu
+                const p = fret;
+                if (type === "aug") tabStr = `e|---${p}---|\nB|---${p+2}---|\nG|---${p+2}---|\nD|---${p+2}---|\nA|---${p}---|\nE|-------|`;
+                else if (type === "dim") tabStr = `e|---${p}---|\nB|---${p+1}---|\nG|---${p-1 < 0 ? 0 : p-1}---|\nD|---${p+1}---|\nA|---${p}---|\nE|-------|`;
+                else if (type === "sus2") tabStr = `e|---${p}---|\nB|---${p}---|\nG|---${p+2}---|\nD|---${p+2}---|\nA|---${p}---|\nE|-------|`;
+                else if (type === "sus4") tabStr = `e|---${p}---|\nB|---${p+3}---|\nG|---${p+2}---|\nD|---${p+2}---|\nA|---${p}---|\nE|-------|`;
+                else tabStr = `e|---${p}---|\nB|---${p+2}---|\nG|---${p+2}---|\nD|---${p+2}---|\nA|---${p}---|\nE|-------|`;
+            } else {
+                // E-Teli Baslı Barre Şablonu
+                const p = fret === 0 ? 12 : fret;
+                if (type === "aug") tabStr = `e|---${p}---|\nB|---${p}---|\nG|---${p+1}---|\nD|---${p+2}---|\nA|---${p+3}---|\nE|---${p}---|`;
+                else if (type === "dim") tabStr = `e|---${p-1 < 0 ? 0 : p-1}---|\nB|---${p-1 < 0 ? 0 : p-1}---|\nG|---${p}---|\nD|---${p-1 < 0 ? 0 : p-1}---|\nA|-------|\nE|---${p}---|`;
+                else tabStr = `e|---${p}---|\nB|---${p}---|\nG|---${p+1}---|\nD|---${p+2}---|\nA|---${p+2}---|\nE|---${p}---|`;
+            }
+
             return {
-                tab: `e|---x---|\nB|---x---|\nG|---x---|\nD|---x---|\nA|---x---|\nE|---x---|`,
+                tab: tabStr,
                 notes: [root],
-                freqs: [noteFreqs[`${root}3`] || 220],
-                formula: type.toUpperCase(),
-                desc: `${root} ${type} akoru varsayılan kalıpta gösterilmiştir.`
+                freqs: [noteFreqs[`${root}3`] || 220, noteFreqs[`${root}4`] || 440],
+                formula: fInfo.formula,
+                desc: `${root} ${type.toUpperCase()} akorunun standart barre kalıbı.`
             };
         }
 
@@ -430,20 +476,17 @@ E|---|
             ).join('');
         }
 
+        // Kök Ses veya Akor Tipi Seçildiğinde Otomatik SES ÇALMA KAPATILDI
         function selectRoot(r) {
-            initAudio();
             currentRoot = r;
             renderRootButtons();
             updateChordView();
-            playCurrentChord();
         }
 
         function selectType(t) {
-            initAudio();
             currentType = t;
             renderTypeButtons();
             updateChordView();
-            playCurrentChord();
         }
 
         function updateChordView() {
@@ -480,6 +523,7 @@ E|---|
             document.getElementById("dot-1").classList.toggle("active", currentSlide === 1);
         }
 
+        // SADECE "🎵 Dinle" Butonuna Tıklandığında Çalışan Ses Fonksiyonu
         function playCurrentChord() {
             initAudio();
             const data = getChordData(currentRoot, currentType);
