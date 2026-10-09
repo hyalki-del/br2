@@ -1,1 +1,512 @@
-<!DOCTYPE html> <html lang="en"> <head>     <meta charset="UTF-8">     <title>Playlist & Setlist</title>     <link href="https://fonts.googleapis.com/css2?family=Oswald:wght@500;700&display=swap" rel="stylesheet">     <style>         * { box-sizing: border-box; margin: 0; padding: 0; transition: background-color 0.2s, color 0.2s; }         body { background-color: var(--bg-primary, #f5f5f7); color: var(--text-main, #1d1d1f); font-family: var(--font-family, sans-serif); min-height: 100vh; padding: 30px 16px; display: flex; flex-direction: column; align-items: center; }         .container { width: 100%; max-width: 950px; }         header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px; }         .btn { padding: 8px 16px; background-color: var(--accent-color, #0071e3); color: #fff; border: none; border-radius: var(--card-radius, 6px); font-weight: 600; cursor: pointer; }         .playlist-card { background-color: var(--bg-secondary, #ffffff); border: 1px solid var(--border-color, #d2d2d7); border-radius: var(--card-radius, 12px); overflow: hidden; }         .song-list { list-style: none; }         .song-item { display: flex; align-items: center; padding: 14px 18px; border-bottom: 1px solid var(--border-color, #e5e5ea); }         .drag-handle { cursor: grab; padding-right: 14px; color: var(--text-muted); }         .song-index { width: 32px; font-weight: 700; color: var(--text-muted); }         .song-details { flex-grow: 1; }         .song-title { font-weight: 600; color: var(--text-main); text-decoration: none; cursor: pointer; }         .song-title:hover { color: var(--accent-color); text-decoration: underline; }         .artist-name { font-size: 0.825rem; color: var(--text-muted); }         .rhs-controls { display: flex; align-items: center; gap: 12px; }         .key-input { width: 55px; padding: 4px; text-align: center; text-transform: uppercase; border: 1px solid var(--border-color); border-radius: 4px; }         .play-btn { display: inline-flex; align-items: center; justify-content: center; width: 34px; height: 34px; border-radius: 50%; background-color: var(--bg-surface); color: var(--accent-color); text-decoration: none; }     </style> </head> <body> <div class="container">     <header>         <div><h1>Band Setlist</h1><p id="song-count-meta">Loading setlist...</p></div>         <div><button class="btn" onclick="shufflePlaylist()">🔀 Shuffle</button> <button class="btn" onclick="saveOrderToRemote()">💾 Save Order</button></div>     </header>     <div class="playlist-card"><ul class="song-list" id="songList"></ul></div>     <div style="text-align:center; margin-top:20px;"><a href="index.html" style="color:var(--accent-color);">← Back to Landing Page</a></div> </div> <script src="core/app.js"></script> <script>     let currentSongs = [];     async function fetchPlaylistData() {         try {             const res = await fetch("playlist.json");             if (res.ok) { currentSongs = await res.json(); renderPlaylist(currentSongs); }         } catch (e) {}         if (window.BandApp && window.BandApp.config && window.BandApp.config.google_sheets_api_url) {             try {                 const apiRes = await fetch(`${window.BandApp.config.google_sheets_api_url}?action=readTab&tab=song-info`);                 const json = await apiRes.json();                 if (json.status === "success" && json.data.length > 0) {                     currentSongs = json.data.map((r, idx) => ({ index: r.Index || (idx + 1), songName: r["Song Name"] || "", artistName: r["Artist Name"] || "", key: r.Key || "" }));                     renderPlaylist(currentSongs);                 }             } catch (err) {}         }     }     function renderPlaylist(songs) {         const list = document.getElementById("songList");         list.innerHTML = "";         document.getElementById("song-count-meta").innerText = `${songs.length} Tracks in Setlist`;         songs.forEach((song, idx) => {             const li = document.createElement("li");             li.className = "song-item";             const ytUrl = `https://www.youtube.com/results?search_query=${encodeURIComponent(song.songName + ' ' + song.artistName)}`;             const safeSong = song.songName.toLowerCase().replace(/[^a-z0-9]/g, '-').replace(/-+/g, '-').replace(/^-|-$/g, '');             const safeArtist = song.artistName.toLowerCase().replace(/[^a-z0-9]/g, '-').replace(/-+/g, '-').replace(/^-|-$/g, '');             const lyricsFile = `${idx + 1}-${safeSong}-${safeArtist}.txt`;              li.innerHTML = `                 <div class="drag-handle">⋮⋮</div>                 <div class="song-index">${idx + 1}</div>                 <div class="song-details">                     <a class="song-title" onclick="openLyricsViewer('${song.songName}', '${song.artistName}', '${lyricsFile}')">${song.songName}</a>                     <div class="artist-name">${song.artistName}</div>                 </div>                 <div class="rhs-controls">                     <input type="text" class="key-input" value="${song.key || ''}" onchange="updateKey('${song.songName}', '${song.artistName}', this.value)" placeholder="KEY">                     <a href="${ytUrl}" target="_blank" class="play-btn">▶</a>                 </div>             `;             list.appendChild(li);         });     }     function shufflePlaylist() {         for (let i = currentSongs.length - 1; i > 0; i--) {             const j = Math.floor(Math.random() * (i + 1));             [currentSongs[i], currentSongs[j]] = [currentSongs[j], currentSongs[i]];         }         renderPlaylist(currentSongs);     }     async function saveOrderToRemote() {         if (window.BandApp && window.BandApp.config && window.BandApp.config.google_sheets_api_url) {             await fetch(window.BandApp.config.google_sheets_api_url, { method: "POST", headers: { "Content-Type": "text/plain;charset=utf-8" }, body: JSON.stringify({ action: "savePlaylistOrder", payload: { songs: currentSongs } }) });         }     }     async function updateKey(songName, artistName, newKey) {         if (window.BandApp && window.BandApp.config && window.BandApp.config.google_sheets_api_url) {             await fetch(window.BandApp.config.google_sheets_api_url, { method: "POST", headers: { "Content-Type": "text/plain;charset=utf-8" }, body: JSON.stringify({ action: "updateSongKey", payload: { songName, artistName, key: newKey } }) });         }     }     function openLyricsViewer(title, artist, filename) {         const w = window.open("", "_blank");         w.document.write(`             <!DOCTYPE html><html><head><title>${title} - ${artist}</title>             <style>body{background:#000;color:#fff;font-family:'Courier New',monospace;padding:24px;}             pre{white-space:pre-wrap;word-wrap:break-word;line-height:1.6;font-size:18px;}</style></head>             <body><h2>${title}</h2><p style="color:#888;">${artist}</p><hr style="border-color:#333;margin:16px 0;">             <pre id="lyricsText">Loading lyrics...</pre>             <script>fetch('songs/${filename}').then(r=>r.text()).then(t=>document.getElementById('lyricsText').innerText=t).catch(e=>document.getElementById('lyricsText').innerText='Lyrics unavailable.');<\/script></body></html>         `);         w.document.close();     }     document.addEventListener("DOMContentLoaded", fetchPlaylistData); </script> </body> </html>
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gitar Akor & Teori Kütüphanesi</title>
+    <style>
+        :root {
+            --bg-color: #121212;
+            --card-bg: #1e1e1e;
+            --accent-color: #00adb5;
+            --highlight-color: #ff2e63;
+            --text-color: #e0e0e0;
+            --border-color: #333333;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: 'Segoe UI', -apple-system, BlinkMacSystemFont, Roboto, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            padding: 15px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            min-height: 100vh;
+        }
+
+        header {
+            text-align: center;
+            margin-bottom: 20px;
+            width: 100%;
+            max-width: 600px;
+        }
+
+        h1 {
+            color: #ffffff;
+            font-size: 1.5rem;
+            margin-bottom: 6px;
+        }
+
+        .subtitle {
+            color: #a0a0a0;
+            font-size: 0.85rem;
+        }
+
+        .main-container {
+            width: 100%;
+            max-width: 600px;
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+        }
+
+        /* Control Panel */
+        .control-panel {
+            background-color: var(--card-bg);
+            border-radius: 12px;
+            padding: 16px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.4);
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+
+        .section-label {
+            font-size: 0.85rem;
+            font-weight: 600;
+            color: var(--accent-color);
+            margin-bottom: 8px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .root-selector, .type-selector {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+        }
+
+        .btn-select {
+            background-color: #2a2a2a;
+            color: #ffffff;
+            border: 1px solid var(--border-color);
+            padding: 8px 12px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 0.88rem;
+            font-weight: 500;
+            transition: all 0.2s ease;
+            flex: 1 0 auto;
+            text-align: center;
+            min-width: 44px;
+        }
+
+        .btn-select:hover {
+            border-color: var(--accent-color);
+            color: var(--accent-color);
+        }
+
+        .btn-select.active {
+            background-color: var(--highlight-color) !important;
+            border-color: var(--highlight-color) !important;
+            color: #ffffff !important;
+            font-weight: bold;
+        }
+
+        /* Interactive Display Box with Slide Carousel */
+        .info-panel {
+            background-color: var(--card-bg);
+            border: 1px solid var(--accent-color);
+            border-radius: 12px;
+            padding: 16px;
+            box-shadow: 0 4px 15px rgba(0, 173, 181, 0.15);
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+
+        .panel-header {
+            color: var(--accent-color);
+            font-size: 1.1rem;
+            font-weight: bold;
+            border-bottom: 1px solid var(--border-color);
+            padding-bottom: 10px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .play-btn {
+            background-color: var(--accent-color);
+            color: #121212;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 6px;
+            font-weight: bold;
+            cursor: pointer;
+            font-size: 0.9rem;
+            transition: transform 0.1s;
+        }
+
+        .play-btn:active {
+            transform: scale(0.95);
+            background-color: var(--highlight-color);
+            color: #fff;
+        }
+
+        /* Carousel Navigation Wrapper */
+        .carousel-wrapper {
+            position: relative;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .nav-arrow {
+            background-color: #2a2a2a;
+            color: var(--accent-color);
+            border: 1px solid var(--border-color);
+            width: 38px;
+            height: 38px;
+            border-radius: 50%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            cursor: pointer;
+            font-size: 1.2rem;
+            font-weight: bold;
+            user-select: none;
+            transition: all 0.2s ease;
+            flex-shrink: 0;
+        }
+
+        .nav-arrow:hover {
+            background-color: var(--accent-color);
+            color: #121212;
+            border-color: var(--accent-color);
+        }
+
+        /* Slide Window */
+        .carousel-container {
+            width: 100%;
+            overflow: hidden;
+            border-radius: 8px;
+            background-color: #0d0d0d;
+        }
+
+        .carousel-slider {
+            display: flex;
+            transition: transform 0.3s cubic-bezier(0.25, 1, 0.5, 1);
+            width: 200%; /* 2 Kart yan yana */
+        }
+
+        .slide-card {
+            width: 50%;
+            padding: 14px;
+            min-height: 180px;
+            box-sizing: border-box;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .slide-title {
+            font-size: 0.8rem;
+            color: #888;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-bottom: 8px;
+            display: flex;
+            justify-content: space-between;
+        }
+
+        pre {
+            font-family: 'Courier New', Courier, monospace;
+            color: #00fff5;
+            font-size: 1rem;
+            line-height: 1.4;
+            margin: 0;
+            overflow-x: auto;
+            font-weight: bold;
+        }
+
+        .theory-content {
+            font-size: 0.88rem;
+            line-height: 1.5;
+            color: var(--text-color);
+        }
+
+        .note-badge {
+            background-color: var(--highlight-color);
+            color: white;
+            padding: 3px 8px;
+            border-radius: 4px;
+            font-weight: bold;
+            display: inline-block;
+            margin-right: 4px;
+            margin-bottom: 6px;
+            font-size: 0.85rem;
+        }
+
+        .formula-text {
+            color: #ffb400;
+            font-weight: bold;
+        }
+
+        /* Dots Indicator */
+        .dots-container {
+            display: flex;
+            justify-content: center;
+            gap: 6px;
+            margin-top: 4px;
+        }
+
+        .dot {
+            width: 8px;
+            height: 8px;
+            background-color: #333;
+            border-radius: 50%;
+            transition: background-color 0.3s;
+        }
+
+        .dot.active {
+            background-color: var(--accent-color);
+        }
+    </style>
+</head>
+<body>
+
+    <header>
+        <h1>Interaktif Gitar Akor Kütüphanesi</h1>
+        <div class="subtitle">Kök Ses & Akor Tipi Seçin — TAB, Notalar ve Ses Analizi</div>
+    </header>
+
+    <div class="main-container">
+
+        <!-- Controls -->
+        <div class="control-panel">
+            <div>
+                <div class="section-label">1. Kök Ses (Root Note)</div>
+                <div class="root-selector" id="root-buttons"></div>
+            </div>
+            <div>
+                <div class="section-label">2. Akor Tipi (Chord Type)</div>
+                <div class="type-selector" id="type-buttons"></div>
+            </div>
+        </div>
+
+        <!-- Info Panel with Carousel -->
+        <div class="info-panel">
+            
+            <div class="panel-header">
+                <span id="chord-title">Akor Seçilmedi</span>
+                <button class="play-btn" onclick="playCurrentChord()">🎵 Dinle</button>
+            </div>
+
+            <!-- Arrow Navigation & Slider -->
+            <div class="carousel-wrapper">
+                <div class="nav-arrow" onclick="prevSlide()">&#10094;</div>
+
+                <div class="carousel-container">
+                    <div class="carousel-slider" id="slider">
+                        
+                        <!-- Slide 1: TAB -->
+                        <div class="slide-card">
+                            <div class="slide-title">
+                                <span>Gitar Tab Gösterimi</span>
+                                <span>(1 / 2)</span>
+                            </div>
+                            <pre id="tab-display">e|---|
+B|---|
+G|---|
+D|---|
+A|---|
+E|---|
+(Yükleniyor...)</pre>
+                        </div>
+
+                        <!-- Slide 2: Theory -->
+                        <div class="slide-card">
+                            <div class="slide-title">
+                                <span>Akor Yapısı & Armoni</span>
+                                <span>(2 / 2)</span>
+                            </div>
+                            <div id="theory-display" class="theory-content">
+                                Yükleniyor...
+                            </div>
+                        </div>
+
+                    </div>
+                </div>
+
+                <div class="nav-arrow" onclick="nextSlide()">&#10095;</div>
+            </div>
+
+            <!-- Page Dots -->
+            <div class="dots-container">
+                <div class="dot active" id="dot-0"></div>
+                <div class="dot" id="dot-1"></div>
+            </div>
+
+        </div>
+
+    </div>
+
+    <script>
+        let audioCtx = null;
+
+        function initAudio() {
+            if (!audioCtx) {
+                audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            }
+            if (audioCtx.state === 'suspended') {
+                audioCtx.resume();
+            }
+        }
+
+        const roots = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"];
+
+        const chordTypes = [
+            { id: "maj", name: "Majör" },
+            { id: "m", name: "Minör" },
+            { id: "7", name: "Dom 7" },
+            { id: "maj7", name: "Maj7" },
+            { id: "m7", name: "Minör 7" },
+            { id: "dim", name: "Diminished" },
+            { id: "aug", name: "Augmented" },
+            { id: "sus2", name: "Sus2" },
+            { id: "sus4", name: "Sus4" }
+        ];
+
+        const noteFreqs = {
+            "C3": 130.81, "C#3": 138.59, "D3": 146.83, "D#3": 155.56, "E3": 164.81, "F3": 174.61, "F#3": 185.00, "G3": 196.00, "G#3": 207.65, "A3": 220.00, "A#3": 233.08, "B3": 246.94,
+            "C4": 261.63, "C#4": 277.18, "D4": 293.66, "D#4": 311.13, "E4": 329.63, "F4": 349.23, "F#4": 369.99, "G4": 392.00, "G#4": 415.30, "A4": 440.00, "A#4": 466.16, "B4": 493.88
+        };
+
+        const chordDatabase = {
+            "C_maj": { tab: "e|---0---|\nB|---1---|\nG|---0---|\nD|---2---|\nA|---3---|\nE|-------|", notes: ["C", "E", "G"], freqs: [noteFreqs.C4, noteFreqs.E4, noteFreqs.G4], formula: "1 - 3 - 5", desc: "Do Majör açık pozisyon triad akorudur." },
+            "C_m": { tab: "e|---3---|\nB|---4---|\nG|---5---|\nD|---5---|\nA|---3---|\nE|-------|", notes: ["C", "D#", "G"], freqs: [noteFreqs.C4, noteFreqs["D#4"], noteFreqs.G4], formula: "1 - b3 - 5", desc: "Do Minör barre akorudur." },
+            "C_7": { tab: "e|---0---|\nB|---1---|\nG|---3---|\nD|---2---|\nA|---3---|\nE|-------|", notes: ["C", "E", "G", "A#"], freqs: [noteFreqs.C4, noteFreqs.E4, noteFreqs.G4, noteFreqs["A#4"]], formula: "1 - 3 - 5 - b7", desc: "Do Dominant 7'li akoru." },
+            "C_maj7": { tab: "e|---0---|\nB|---0---|\nG|---0---|\nD|---2---|\nA|---3---|\nE|-------|", notes: ["C", "E", "G", "B"], freqs: [noteFreqs.C4, noteFreqs.E4, noteFreqs.G4, noteFreqs.B4], formula: "1 - 3 - 5 - 7", desc: "Do Majör 7'li akoru." },
+            "C_m7": { tab: "e|---3---|\nB|---4---|\nG|---3---|\nD|---5---|\nA|---3---|\nE|-------|", notes: ["C", "D#", "G", "A#"], freqs: [noteFreqs.C4, noteFreqs["D#4"], noteFreqs.G4, noteFreqs["A#4"]], formula: "1 - b3 - 5 - b7", desc: "Do Minör 7'li akoru." },
+
+            "A_maj": { tab: "e|---0---|\nB|---2---|\nG|---2---|\nD|---2---|\nA|---0---|\nE|-------|", notes: ["A", "C#", "E"], freqs: [noteFreqs.A3, noteFreqs["C#4"], noteFreqs.E4], formula: "1 - 3 - 5", desc: "La Majör açık akor." },
+            "A_m": { tab: "e|---0---|\nB|---1---|\nG|---2---|\nD|---2---|\nA|---0---|\nE|-------|", notes: ["A", "C", "E"], freqs: [noteFreqs.A3, noteFreqs.C4, noteFreqs.E4], formula: "1 - b3 - 5", desc: "La Minör açık akor." },
+
+            "E_maj": { tab: "e|---0---|\nB|---0---|\nG|---1---|\nD|---2---|\nA|---2---|\nE|---0---|", notes: ["E", "G#", "B"], freqs: [noteFreqs.E3, noteFreqs["G#3"], noteFreqs.B3], formula: "1 - 3 - 5", desc: "Mi Majör açık akor." },
+            "E_m": { tab: "e|---0---|\nB|---0---|\nG|---0---|\nD|---2---|\nA|---2---|\nE|---0---|", notes: ["E", "G", "B"], freqs: [noteFreqs.E3, noteFreqs.G3, noteFreqs.B3], formula: "1 - b3 - 5", desc: "Mi Minör açık akor." }
+        };
+
+        function getChordData(root, type) {
+            const key = `${root}_${type}`;
+            if (chordDatabase[key]) return chordDatabase[key];
+
+            return {
+                tab: `e|---x---|\nB|---x---|\nG|---x---|\nD|---x---|\nA|---x---|\nE|---x---|`,
+                notes: [root],
+                freqs: [noteFreqs[`${root}3`] || 220],
+                formula: type.toUpperCase(),
+                desc: `${root} ${type} akoru varsayılan kalıpta gösterilmiştir.`
+            };
+        }
+
+        let currentRoot = "C";
+        let currentType = "maj";
+        let currentSlide = 0;
+
+        window.onload = () => {
+            renderRootButtons();
+            renderTypeButtons();
+            updateChordView();
+        };
+
+        function renderRootButtons() {
+            const container = document.getElementById("root-buttons");
+            container.innerHTML = roots.map(r => 
+                `<button class="btn-select ${r === currentRoot ? 'active' : ''}" onclick="selectRoot('${r}')">${r}</button>`
+            ).join('');
+        }
+
+        function renderTypeButtons() {
+            const container = document.getElementById("type-buttons");
+            container.innerHTML = chordTypes.map(t => 
+                `<button class="btn-select ${t.id === currentType ? 'active' : ''}" onclick="selectType('${t.id}')">${t.name}</button>`
+            ).join('');
+        }
+
+        function selectRoot(r) {
+            initAudio();
+            currentRoot = r;
+            renderRootButtons();
+            updateChordView();
+            playCurrentChord();
+        }
+
+        function selectType(t) {
+            initAudio();
+            currentType = t;
+            renderTypeButtons();
+            updateChordView();
+            playCurrentChord();
+        }
+
+        function updateChordView() {
+            const chordName = `${currentRoot} ${chordTypes.find(t => t.id === currentType).name}`;
+            const data = getChordData(currentRoot, currentType);
+
+            document.getElementById("chord-title").innerText = chordName;
+            document.getElementById("tab-display").innerText = data.tab;
+
+            const notesHTML = data.notes.map(n => `<span class="note-badge">${n}</span>`).join('');
+            document.getElementById("theory-display").innerHTML = `
+                <div style="margin-bottom:6px;"><strong>Notalar:</strong> ${notesHTML}</div>
+                <div style="margin-bottom:6px;"><strong>Aralık:</strong> <span class="formula-text">${data.formula}</span></div>
+                <div><strong>Açıklama:</strong> ${data.desc}</div>
+            `;
+        }
+
+        /* Carousel Navigation Functions */
+        function nextSlide() {
+            currentSlide = (currentSlide + 1) % 2;
+            updateSliderPosition();
+        }
+
+        function prevSlide() {
+            currentSlide = (currentSlide - 1 + 2) % 2;
+            updateSliderPosition();
+        }
+
+        function updateSliderPosition() {
+            const slider = document.getElementById("slider");
+            slider.style.transform = `translateX(-${currentSlide * 50}%)`;
+
+            document.getElementById("dot-0").classList.toggle("active", currentSlide === 0);
+            document.getElementById("dot-1").classList.toggle("active", currentSlide === 1);
+        }
+
+        function playCurrentChord() {
+            initAudio();
+            const data = getChordData(currentRoot, currentType);
+            if (!data || !data.freqs) return;
+
+            const now = audioCtx.currentTime;
+            const duration = 1.6;
+
+            data.freqs.forEach((freq, idx) => {
+                const osc = audioCtx.createOscillator();
+                const gain = audioCtx.createGain();
+
+                osc.type = 'triangle';
+                osc.frequency.value = freq;
+
+                const startTime = now + (idx * 0.04);
+
+                gain.gain.setValueAtTime(0.15, startTime);
+                gain.gain.exponentialRampToValueAtTime(0.0001, startTime + duration);
+
+                osc.connect(gain);
+                gain.connect(audioCtx.destination);
+
+                osc.start(startTime);
+                osc.stop(startTime + duration);
+            });
+        }
+    </script>
+</body>
+</html>
